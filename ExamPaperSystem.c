@@ -18,7 +18,7 @@ int main()
     LogMe.w("warning");
     LogMe.i("message");
     LogMe.n("normal");
-    LogMe.i("你好，谭凌风！%s %u", "你的学号是", 1800301129);
+    LogMe.i("你好，大白！%s %u", "你的学号是", 20202021);
     vlist list = make_vlist(sizeof(node));
     for (size_t i = 0; i < 10; i++)
     {
