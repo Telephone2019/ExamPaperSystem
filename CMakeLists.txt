@@ -17,11 +17,17 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # 添加C编译选项
 # -g 是用来指示 gcc 编译器生成可调试的可执行文件
-# SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+# GCC
+# SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -finput-charset=UTF-8 -fexec-charset=UTF-8")
+# MSVC
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /source-charset:utf-8 /execution-charset:utf-8")
 
 # 添加C++编译选项
 # -g 是用来指示 gcc 编译器生成可调试的可执行文件
-# SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+# GCC
+# SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -finput-charset=UTF-8 -fexec-charset=UTF-8")
+# MSVC
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /source-charset:utf-8 /execution-charset:utf-8")
 
 project ("ExamPaperSystem")
 
@@ -39,6 +45,8 @@ add_executable (ExamPaperSystem "ExamPaperSystem.c")
 add_subdirectory(src)
 # 链接自定义库
 target_link_libraries(ExamPaperSystem PRIVATE VList LogMe)
+# 以下自定义库仅适用于 windows 平台
+target_link_libraries(ExamPaperSystem PRIVATE TCPServer)
 
 # 标准库
 # GCC

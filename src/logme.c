@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <time.h>
 
 #include "macros.h"
 
@@ -110,4 +111,81 @@ static void log_me_n__(const char* text, ...) {
     va_end(vlist);
 }
 
-struct LogMe LogMe = { log_me_i__, log_me_w__, log_me_e__, log_me_n__ };
+static void format_time(char* output, size_t len) {
+    time_t rawtime;
+    struct tm* timeinfo;
+
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    snprintf(output, len, "[ %04d-%02d-%02d %02d:%02d:%02d ]",
+        timeinfo->tm_year + 1900,
+        timeinfo->tm_mon + 1,
+        timeinfo->tm_mday,
+        timeinfo->tm_hour,
+        timeinfo->tm_min,
+        timeinfo->tm_sec);
+}
+
+static char* with_time(const char *s) {
+    char time[50];
+    format_time(time, 50);
+
+    const char* d = " ";
+    const char* prefix = " ";
+    const char* suffix = "";
+
+    char* res = malloc_n(strlen(s) + strlen(time) + strlen(d) + strlen(prefix) + strlen(suffix) + 1);
+
+    strcat(res, prefix);
+    strcat(res, time);
+    strcat(res, d);
+    strcat(res, s);
+    strcat(res, suffix);
+
+    return res;
+}
+
+static void log_me_it__(const char* text, ...) {
+    char* tt = with_time(text);
+    va_list vlist;
+    va_start(vlist, text);
+    l(tt, GREEN, vlist);
+    va_end(vlist);
+    free(tt);
+}
+static void log_me_wt__(const char* text, ...) {
+    char* tt = with_time(text);
+    va_list vlist;
+    va_start(vlist, text);
+    l(tt, YELLOW, vlist);
+    va_end(vlist);
+    free(tt);
+}
+static void log_me_et__(const char* text, ...) {
+    char* tt = with_time(text);
+    va_list vlist;
+    va_start(vlist, text);
+    l(tt, RED, vlist);
+    va_end(vlist);
+    free(tt);
+}
+static void log_me_nt__(const char* text, ...) {
+    char* tt = with_time(text);
+    va_list vlist;
+    va_start(vlist, text);
+    l(tt, NORMAL, vlist);
+    va_end(vlist);
+    free(tt);
+}
+
+struct LogMe LogMe = { 
+    log_me_i__, 
+    log_me_w__, 
+    log_me_e__, 
+    log_me_n__,
+    log_me_it__,
+    log_me_wt__,
+    log_me_et__,
+    log_me_nt__
+};

@@ -1,6 +1,14 @@
 ﻿
 #include <logme.h>
 #include <vlist.h>
+#include <macros.h>
+
+#ifdef LOGME_WINDOWS
+
+#include <windows.h>
+#include <tcpserver.h>
+
+#endif // LOGME_WINDOWS
 
 typedef struct node {
     VLISTNODE
@@ -14,6 +22,11 @@ int my_run(vlist this, long i) {
 
 int main()
 {
+
+#ifdef LOGME_WINDOWS
+    system("chcp 65001");
+#endif // LOGME_WINDOWS
+
     LogMe.e("error");
     LogMe.w("warning");
     LogMe.i("message");
@@ -29,5 +42,10 @@ int main()
     list->remove(list, 9);
     list->foreach(list, my_run);
     delete_vlist(list, &list);
+
+#ifdef LOGME_WINDOWS
+    tcp_server_run();
+#endif // LOGME_WINDOWS
+
     return 0;
 }
