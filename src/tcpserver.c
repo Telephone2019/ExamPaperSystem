@@ -30,11 +30,12 @@ void tcp_server_run(int port) {
 	const char* exit_words = "tcp server exited";
 	const char* hello_words = "tcp server started";
 
+	LogMe.it(hello_words);
+
 	if (init_winsock() != 0) {
 		LogMe.et(exit_words);
 		return;
 	}
-	LogMe.it(hello_words);
 
 	struct addrinfo* result = NULL, hints;
 
@@ -46,21 +47,21 @@ void tcp_server_run(int port) {
 	hints.ai_flags = AI_PASSIVE;  // Listen socket
 
 	// 获取 socket 指示信息列表
-	int gres = getaddrinfo(
+	int iResult = getaddrinfo(
 		NULL, // Listen socket
 		vitoa(port, (char[30]){0}, 30), // Port
 		&hints,
 		&result
 	);
 
-	if (gres != 0) {
-		LogMe.et("getaddrinfo failed: %d", gres);
+	if (iResult != 0) {
+		LogMe.et("getaddrinfo failed: %d", iResult);
 		WSACleanup();
 		LogMe.et(exit_words);
 		return;
 	}
 	
-	// 根据获取到的指示信息创建 监听套接字
+	// 根据获取到的第一个指示信息创建 监听套接字
 	SOCKET ListenSocket = INVALID_SOCKET;
 	ListenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
 
@@ -71,5 +72,55 @@ void tcp_server_run(int port) {
 		LogMe.et(exit_words);
 		return;
 	}
-	LogMe.it("%p", ListenSocket);
+
+	// 根据获取到的第一个指示信息绑定 监听套接字
+	iResult = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
+	if (iResult == SOCKET_ERROR) {
+		LogMe.et("bind failed with error: %d", WSAGetLastError());
+		closesocket(ListenSocket);
+		freeaddrinfo(result);
+		WSACleanup();
+		LogMe.et(exit_words);
+		return;
+	}
+	LogMe.it("bind succeeded on port: %d", port);
+
+	// 释放不再需要的指示信息列表
+	freeaddrinfo(result);
+
+	// 监听 监听套接字
+	// SOMAXCONN 是 “接收新 TCP 连接队列” 的系统默认的最大长度
+	if (listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR) {
+		LogMe.et("Listen failed with error: %ld", WSAGetLastError());
+		closesocket(ListenSocket);
+		WSACleanup();
+		LogMe.et(exit_words);
+		return;
+	}
+	LogMe.it("listen succeeded on port: %d", port);
+
+	LogMe.it("listening...");
+
+	SOCKET ClientSocket;
+	struct sockaddr_storage client_sockaddr;
+	int client_sockaddr_len;
+	int accept_succeed;
+
+	// 接受新的 TCP 连接
+	while (
+		client_sockaddr_len = sizeof(client_sockaddr),
+		ClientSocket = accept(ListenSocket, &client_sockaddr, &client_sockaddr_len),
+		accept_succeed = (ClientSocket != INVALID_SOCKET)
+		) {
+		LogMe.it("accepted: ");
+	}
+
+	if (!accept_succeed)
+	{
+		LogMe.et("accept failed: %d", WSAGetLastError());
+	}
+
+	closesocket(ListenSocket);
+	WSACleanup();
+	LogMe.et(exit_words);
 }
