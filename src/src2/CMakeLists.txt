@@ -8,6 +8,7 @@ set(MyInclude2 "${PROJECT_SOURCE_DIR}/include")
 
 # 仅适用于 windows 平台
 # add_library(TCPServer "tcpserver.c")
+add_library(KBHook "kbhook.c")
 
 ########################################### 自定义库的头文件目录 ###########################################
 
@@ -16,6 +17,7 @@ set(MyInclude2 "${PROJECT_SOURCE_DIR}/include")
 
 # 仅适用于 windows 平台
 # target_include_directories(TCPServer PUBLIC ${MyInclude2})
+target_include_directories(KBHook PUBLIC ${MyInclude2})
 
 ######################################### 自定义库需要链接的其他库 #########################################
 

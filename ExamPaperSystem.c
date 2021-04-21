@@ -7,6 +7,7 @@
 
 #include <windows.h>
 #include <tcpserver.h>
+#include <kbhook.h>
 
 #endif // LOGME_WINDOWS
 
@@ -45,6 +46,7 @@ int main()
 
 #ifdef LOGME_WINDOWS
     tcp_server_run(63320);
+    kbhook_run_success();
 #endif // LOGME_WINDOWS
 
     return 0;

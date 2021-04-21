@@ -46,7 +46,7 @@ add_subdirectory(src)
 # 链接自定义库
 target_link_libraries(ExamPaperSystem PRIVATE VList LogMe)
 # 以下自定义库仅适用于 windows 平台
-target_link_libraries(ExamPaperSystem PRIVATE TCPServer)
+target_link_libraries(ExamPaperSystem PRIVATE TCPServer KBHook)
 
 # 标准库
 # GCC
