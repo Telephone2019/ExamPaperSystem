@@ -1,10 +1,16 @@
 #ifndef KBHOOK
 #define KBHOOK
 
-int kbhook_run_success();
+#include <macros.h>
 
-int InstallHook();
-int UninstallHook();
+#ifdef LOGME_MSVC
+#define DllExport __declspec( dllexport )
+#endif // LOGME_MSVC
+
+DllExport int kbhook_run_success();
+
+DllExport int InstallHook();
+DllExport int UninstallHook();
 
 #endif // !KBHOOK
 

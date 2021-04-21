@@ -1,19 +1,13 @@
 #include "kbhook.h"
 
-#include <stdio.h>
-
-#ifndef WIN32_LEAN_AND_MEAN
-
 #include <windows.h>
-
-#define WIN32_LEAN_AND_MEAN
-#endif
 
 #define KBHDLL "KeyBoardDll"
 
 HHOOK global_keyboard_hook = NULL;
 
-int kbhook_run_success() {
+DllExport int kbhook_run_success() {
+	//KeyBoardHook_Main();
 	return 1;
 }
 
@@ -25,7 +19,7 @@ int kbhook_run_success() {
 /// <param name="wParam">虚拟按键的代号</param>
 /// <param name="lParam">键状态</param>
 /// <returns></returns>
-LRESULT WINAPI KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+DllExport LRESULT WINAPI KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 
 	if (nCode < 0 || nCode == HC_NOREMOVE) {
 		// 如果代码小于零，则挂钩过程必须将消息传递给CallNextHookEx函数，而无需进一步处理，并且应返回CallNextHookEx返回的值。此参数可以是下列值之一。(来自官网手册)
@@ -40,7 +34,7 @@ LRESULT WINAPI KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	return CallNextHookEx(global_keyboard_hook, nCode, wParam, lParam);
 }
 
-int InstallHook() {
+DllExport int InstallHook() {
 	// 【参数1】钩子的类型，这里代表键盘钩子
 	// 【参数2】钩子处理的函数
 	// 【参数3】获取模块,PROJECT_NAME为DLL的项目名称
@@ -56,7 +50,7 @@ int InstallHook() {
 
 }
 
-int UninstallHook() {
+DllExport int UninstallHook() {
 	if (! UnhookWindowsHookEx(global_keyboard_hook)) {
 		return 0;
 	}
