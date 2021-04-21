@@ -50,6 +50,8 @@ static char* line(const char* s) {
 static void set_console_text_color(WORD color) {
     HANDLE consolehwnd = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(consolehwnd, color);
+    // 这里为什么不需要 CloseHandle ？因为 GetStdHandle 返回的 Handle 由系统持有。
+    // CloseHandle(consolehwnd);
 }
 
 static void reset_console_text_color() {
