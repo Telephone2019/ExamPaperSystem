@@ -4,10 +4,12 @@
 
 #define KBHDLL "KeyBoardDll"
 
-HHOOK global_keyboard_hook = NULL;
+static HHOOK global_keyboard_hook = NULL;
+
+static void KeyBoardHook_Main();
 
 DllExport int kbhook_run_success() {
-	//KeyBoardHook_Main();
+	KeyBoardHook_Main();
 	return 1;
 }
 
@@ -57,7 +59,7 @@ DllExport int UninstallHook() {
 	return 1;
 }
 
-void KeyBoardHook_Main() {
-
+static void KeyBoardHook_Main() {
+	system("chcp");
 }
 

