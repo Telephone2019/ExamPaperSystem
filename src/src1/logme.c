@@ -8,7 +8,7 @@
 
 #include "macros.h"
 
-#ifdef LOGME_WINDOWS // ÓÃÕâ¸öºêÀ´ÅĞ¶ÏÊÇ·ñÊÇ windows Æ½Ì¨
+#ifdef LOGME_WINDOWS // ç”¨è¿™ä¸ªå®æ¥åˆ¤æ–­æ˜¯å¦æ˜¯ windows å¹³å°
 
 #include <windows.h>
 
@@ -50,7 +50,7 @@ static char* line(const char* s) {
 static void set_console_text_color(WORD color) {
     HANDLE consolehwnd = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(consolehwnd, color);
-    // ÕâÀïÎªÊ²Ã´²»ĞèÒª CloseHandle £¿ÒòÎª GetStdHandle ·µ»ØµÄ Handle ÓÉÏµÍ³³ÖÓĞ¡£
+    // è¿™é‡Œä¸ºä»€ä¹ˆä¸éœ€è¦ CloseHandle ï¼Ÿå› ä¸º GetStdHandle è¿”å›çš„ Handle ç”±ç³»ç»ŸæŒæœ‰ã€‚
     // CloseHandle(consolehwnd);
 }
 

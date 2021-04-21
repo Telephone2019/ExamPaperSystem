@@ -46,7 +46,7 @@ void tcp_server_run(int port) {
 	hints.ai_protocol = IPPROTO_TCP; // Socket over TCP
 	hints.ai_flags = AI_PASSIVE;  // Listen socket
 
-	// »ñÈ¡ socket Ö¸Ê¾ĞÅÏ¢ÁĞ±í
+	// è·å– socket æŒ‡ç¤ºä¿¡æ¯åˆ—è¡¨
 	int iResult = getaddrinfo(
 		NULL, // Listen socket
 		vitoa(port, (char[30]){0}, 30), // Port
@@ -61,7 +61,7 @@ void tcp_server_run(int port) {
 		return;
 	}
 	
-	// ¸ù¾İ»ñÈ¡µ½µÄµÚÒ»¸öÖ¸Ê¾ĞÅÏ¢´´½¨ ¼àÌıÌ×½Ó×Ö
+	// æ ¹æ®è·å–åˆ°çš„ç¬¬ä¸€ä¸ªæŒ‡ç¤ºä¿¡æ¯åˆ›å»º ç›‘å¬å¥—æ¥å­—
 	SOCKET ListenSocket = INVALID_SOCKET;
 	ListenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
 
@@ -73,7 +73,7 @@ void tcp_server_run(int port) {
 		return;
 	}
 
-	// ¸ù¾İ»ñÈ¡µ½µÄµÚÒ»¸öÖ¸Ê¾ĞÅÏ¢°ó¶¨ ¼àÌıÌ×½Ó×Ö
+	// æ ¹æ®è·å–åˆ°çš„ç¬¬ä¸€ä¸ªæŒ‡ç¤ºä¿¡æ¯ç»‘å®š ç›‘å¬å¥—æ¥å­—
 	iResult = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
 		LogMe.et("bind failed with error: %d", WSAGetLastError());
@@ -85,11 +85,11 @@ void tcp_server_run(int port) {
 	}
 	LogMe.it("bind succeeded on port: %d", port);
 
-	// ÊÍ·Å²»ÔÙĞèÒªµÄÖ¸Ê¾ĞÅÏ¢ÁĞ±í
+	// é‡Šæ”¾ä¸å†éœ€è¦çš„æŒ‡ç¤ºä¿¡æ¯åˆ—è¡¨
 	freeaddrinfo(result);
 
-	// ¼àÌı ¼àÌıÌ×½Ó×Ö
-	// SOMAXCONN ÊÇ ¡°½ÓÊÕĞÂ TCP Á¬½Ó¶ÓÁĞ¡± µÄÏµÍ³Ä¬ÈÏµÄ×î´ó³¤¶È
+	// ç›‘å¬ ç›‘å¬å¥—æ¥å­—
+	// SOMAXCONN æ˜¯ â€œæ¥æ”¶æ–° TCP è¿æ¥é˜Ÿåˆ—â€ çš„ç³»ç»Ÿé»˜è®¤çš„æœ€å¤§é•¿åº¦
 	if (listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR) {
 		LogMe.et("Listen failed with error: %ld", WSAGetLastError());
 		closesocket(ListenSocket);
@@ -106,7 +106,7 @@ void tcp_server_run(int port) {
 	int client_sockaddr_len;
 	int accept_succeed;
 
-	// ½ÓÊÜĞÂµÄ TCP Á¬½Ó
+	// æ¥å—æ–°çš„ TCP è¿æ¥
 	while (
 		client_sockaddr_len = sizeof(client_sockaddr),
 		ClientSocket = accept(ListenSocket, &client_sockaddr, &client_sockaddr_len),
