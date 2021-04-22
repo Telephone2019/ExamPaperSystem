@@ -33,16 +33,22 @@ typedef struct node {
 	int open;
 } node;
 
-static vlist child_threads_list;
+static vlist child_threads_list = NULL;
 static int has_open;
 
 // return non-zero to break
 static int check_cth(vlist this, long i) {
-	
+	has_open += ((node*)(this->get_const(this, i)))->open;
+	return 0;
 }
 
 static int all_closed(){
-	
+	has_open = 0;
+	if (child_threads_list != NULL)
+	{
+		child_threads_list->foreach(child_threads_list, check_cth);
+	}
+	return !has_open;
 }
 
 void tcp_server_run(int port) {
@@ -60,7 +66,7 @@ void tcp_server_run(int port) {
 
 	ZeroMemory(&hints, sizeof(hints));
 
-	hints.ai_family = AF_UNSPEC; // Both IPv4 and IPv6
+	hints.ai_family = AF_INET6; // IPv6 for dual-stack socket
 	hints.ai_socktype = SOCK_STREAM; // Stream socket
 	hints.ai_protocol = IPPROTO_TCP; // Socket over TCP
 	hints.ai_flags = AI_PASSIVE;  // Listen socket
@@ -92,6 +98,20 @@ void tcp_server_run(int port) {
 		return;
 	}
 
+	// 设置套接字为 IPv4 IPv6 双协议栈套接字
+	iResult = setsockopt(ListenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&((DWORD) { 0 }), sizeof(DWORD));
+	if (iResult == SOCKET_ERROR) {
+		LogMe.et("setsockopt for IPV6_V6ONLY failed with error: %u", WSAGetLastError());
+		closesocket(ListenSocket);
+		freeaddrinfo(result);
+		WSACleanup();
+		LogMe.et(exit_words);
+		return;
+	}
+	else {
+		LogMe.it("Set IPV6_V6ONLY: false");
+	}
+
 	// 根据获取到的第一个指示信息绑定 监听套接字
 	iResult = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
@@ -120,7 +140,8 @@ void tcp_server_run(int port) {
 
 	LogMe.it("listening...");
 
-	//child_threads_list = make_vlist(sizeof(node));
+	// 初始化线程列表
+	child_threads_list = make_vlist(sizeof(node));
 
 	SOCKET ClientSocket;
 	struct sockaddr_storage client_sockaddr;
@@ -134,14 +155,23 @@ void tcp_server_run(int port) {
 		accept_succeed = (ClientSocket != INVALID_SOCKET)
 		) {
 		LogMe.it("accepted: ");
+		accept_succeed = 0;
+		break;
 	}
 
+	// 解释退出原因
 	if (!accept_succeed)
 	{
 		LogMe.et("accept failed: %d", WSAGetLastError());
 	}
 
+	// 等待所有的连接线程都自动退出
+	LogMe.et("waiting for all the connection threads to exit...");
+	while (!all_closed());
+	LogMe.et("All the connection threads have exited");
 
+	// 释放线程列表
+	delete_vlist(child_threads_list, &child_threads_list);
 
 	closesocket(ListenSocket);
 	WSACleanup();
