@@ -15,6 +15,7 @@
 #define GREEN FOREGROUND_GREEN
 #define YELLOW 6
 #define RED FOREGROUND_RED
+#define BLUE 3
 #define WHITE 7
 #define NORMAL_WHILE WHITE
 #define NORMAL NORMAL_WHILE
@@ -25,6 +26,7 @@
 #define GREEN "\e[1;32m"
 #define YELLOW "\e[1;33m"
 #define RED "\e[1;31m"
+#define BLUE "\e[1;34m"
 #define NORMAL "\e[0m"
 #define LINE "\n"
 
@@ -58,12 +60,22 @@ static void reset_console_text_color() {
     set_console_text_color(NORMAL);
 }
 
+static HANDLE l_mutex = NULL;
+
 static void l(const char* text, WORD color, va_list vlist) {
+    if (l_mutex == NULL)
+    {
+        puts("Please call logme_init() from single thread to init LogMe first.");
+        return;
+    }
+    while (WaitForSingleObject(l_mutex, INFINITE) == WAIT_FAILED);
     const char* text_line = line(text);
     set_console_text_color(color);
     vprintf(text_line, vlist);
+    fflush(stdout);
     reset_console_text_color();
     free(text_line);
+    while (!ReleaseMutex(l_mutex));
 }
 
 #else
@@ -88,6 +100,21 @@ static void l(const char* text, const char* color, va_list vlist) {
 
 #endif
 
+void logme_init() {
+#ifdef LOGME_WINDOWS
+
+    while (l_mutex == NULL)
+    {
+        l_mutex = CreateMutex(
+            NULL,               // default security attributes
+            0,                  // initially not owned
+            NULL                // unnamed mutex
+        );
+    }
+
+#endif // LOGME_WINDOWS
+}
+
 static void log_me_i__(const char* text, ...) {
     va_list vlist;
     va_start(vlist, text);
@@ -110,6 +137,12 @@ static void log_me_n__(const char* text, ...) {
     va_list vlist;
     va_start(vlist, text);
     l(text, NORMAL, vlist);
+    va_end(vlist);
+}
+static void log_me_b__(const char* text, ...) {
+    va_list vlist;
+    va_start(vlist, text);
+    l(text, BLUE, vlist);
     va_end(vlist);
 }
 
@@ -180,14 +213,24 @@ static void log_me_nt__(const char* text, ...) {
     va_end(vlist);
     free(tt);
 }
+static void log_me_bt__(const char* text, ...) {
+    char* tt = with_time(text);
+    va_list vlist;
+    va_start(vlist, text);
+    l(tt, BLUE, vlist);
+    va_end(vlist);
+    free(tt);
+}
 
 struct LogMe LogMe = { 
     log_me_i__, 
     log_me_w__, 
     log_me_e__, 
     log_me_n__,
+    log_me_b__,
     log_me_it__,
     log_me_wt__,
     log_me_et__,
-    log_me_nt__
+    log_me_nt__,
+    log_me_bt__
 };

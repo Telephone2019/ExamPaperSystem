@@ -133,6 +133,25 @@ void vlist_foreach(vlist this, VLIST_RUNNABLE_FUNC_TYPE* run) {
         }
     }
 }
+void vlist_foreach_reverse(vlist this, VLIST_RUNNABLE_FUNC_TYPE* run) {
+    for (long i = this->size - 1; i >= 0; i--)
+    {
+        if (run(this, i) != 0) {
+            break;
+        }
+    }
+}
+long vlist_flush(vlist this, VLIST_FILTER_FUNC_TYPE* filter) {
+    long flushed = 0;
+    for (long i = this->size - 1; i >= 0; i--)
+    {
+        if (!filter(this, i)) {
+            this->remove(this, i);
+            flushed++;
+        }
+    }
+    return flushed;
+}
 
 vlist make_vlist(size_t node_size) {
     vlist res = malloc(sizeof(struct vlist));
@@ -156,6 +175,8 @@ vlist make_vlist(size_t node_size) {
     res->quick_insert = vlist_quick_insert;
     res->remove = vlist_remove;
     res->foreach = vlist_foreach;
+    res->foreach_reverse = vlist_foreach_reverse;
+    res->flush = vlist_flush;
 
     return res;
 }
