@@ -1,3 +1,5 @@
+cmake_minimum_required (VERSION 3.8)
+
 # 设置此项目的自定义库的头文件目录
 set(MyInclude2 "${PROJECT_SOURCE_DIR}/include")
 
@@ -30,5 +32,10 @@ target_include_directories(KBHook PUBLIC ${MyInclude2})
 
 # 仅适用于 windows 平台
 target_link_directories(KBHook PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+
+############################################# 自定义库的安装 #############################################
+
+# 仅适用于 windows 平台
+install(TARGETS KBHook DESTINATION ${PROJECT_BINARY_DIR})
 
 ##########################################################################################################

@@ -1,3 +1,5 @@
+cmake_minimum_required (VERSION 3.8)
+
 # 设置此项目的自定义库的头文件目录
 set(MyInclude1 "${PROJECT_SOURCE_DIR}/include")
 
@@ -30,6 +32,6 @@ target_include_directories(TCPServer PUBLIC ${MyInclude1})
 # 一些自定义库需要链接别的库，PRIVATE 表明链接的库仅用于自定义库本身
 
 # 仅适用于 windows 平台
-target_link_libraries(TCPServer PRIVATE LogMe Ws2_32 VUtils)
+target_link_libraries(TCPServer PRIVATE LogMe Ws2_32 VUtils VList)
 
 ##########################################################################################################

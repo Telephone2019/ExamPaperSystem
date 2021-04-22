@@ -6,6 +6,7 @@
 
 #include <logme.h>
 #include <vutils.h>
+#include <vlist.h>
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -24,6 +25,24 @@ static int init_winsock() {
 		LogMe.it("WSAStartup succeeded");
 	}
 	return iResult;
+}
+
+typedef struct node {
+	VLISTNODE
+		HANDLE handle;
+	int open;
+} node;
+
+static vlist child_threads_list;
+static int has_open;
+
+// return non-zero to break
+static int check_cth(vlist this, long i) {
+	
+}
+
+static int all_closed(){
+	
 }
 
 void tcp_server_run(int port) {
@@ -101,6 +120,8 @@ void tcp_server_run(int port) {
 
 	LogMe.it("listening...");
 
+	//child_threads_list = make_vlist(sizeof(node));
+
 	SOCKET ClientSocket;
 	struct sockaddr_storage client_sockaddr;
 	int client_sockaddr_len;
@@ -119,6 +140,8 @@ void tcp_server_run(int port) {
 	{
 		LogMe.et("accept failed: %d", WSAGetLastError());
 	}
+
+
 
 	closesocket(ListenSocket);
 	WSACleanup();

@@ -11,6 +11,7 @@
 
 typedef struct vlist* vlist;
 
+// return non-zero to break
 typedef int VLIST_RUNNABLE_FUNC_TYPE(vlist this, long i);
 
 typedef void* VLIST_GET_FUNC_TYPE(vlist this, long index);
