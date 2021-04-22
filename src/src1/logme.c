@@ -34,7 +34,10 @@
 
 static void* malloc_n(size_t n) {
     void* res = malloc(n);
-    memset(res, 0, n);
+    if (res != NULL)
+    {
+        memset(res, 0, n);
+    }
     return res;
 }
 

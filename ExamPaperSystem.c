@@ -1,7 +1,9 @@
 ﻿
 #include <logme.h>
 #include <vlist.h>
+#include <vutils.h>
 #include <macros.h>
+#include <stdlib.h>
 
 #ifdef LOGME_WINDOWS
 
@@ -54,9 +56,13 @@ int main()
     list->foreach(list, my_run);
     delete_vlist(list, &list);
 
+    void* zptr = zero_malloc(50);
+    LogMe.b("zero malloc ptr = %p", zptr);
+    free(zptr);
+
 #ifdef LOGME_WINDOWS
     kbhook_run_success();
-    tcp_server_run(63320, 1);
+    tcp_server_run(23456, 1);
 #endif // LOGME_WINDOWS
 
     return 0;

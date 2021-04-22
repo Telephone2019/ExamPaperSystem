@@ -72,6 +72,58 @@ static int clean_up_connection(node *connection_p, params *params_p, int returne
 	return returned;
 }
 
+static char16_t *get_utf_16_file_name_from_utf8(const char* u8fn) {
+	int wnum = test_wide_char_num_of_utf8_including_wide_null(u8fn);
+	char16_t* w_fn = malloc(sizeof(char16_t) * wnum);
+	if (w_fn == NULL)
+	{
+		return NULL;
+	}
+	utf8_to_utf16_must_have_sufficient_buffer_including_wide_null(u8fn, w_fn, wnum);
+	return w_fn;
+}
+
+static HANDLE get_file_hd(const char *filename) {
+	const char* prefix = "\\\\?\\";
+	const char* suffix = "";
+	char* fn_temp = zero_malloc(strlen(filename) + strlen(prefix) + strlen(suffix) + 1);
+	if (fn_temp == NULL)
+	{
+		LogMe.et("Open file [ %s ] failed with error: Malloc Fail", filename);
+		return NULL;
+	}
+	strcat(fn_temp, prefix);
+	strcat(fn_temp, filename);
+	strcat(fn_temp, suffix);
+	char16_t* wide_filename = get_utf_16_file_name_from_utf8(fn_temp);
+	free(fn_temp); fn_temp = NULL;
+	if (wide_filename == NULL)
+	{
+		LogMe.et("Open file [ %s ] failed with error: Malloc Fail", filename);
+		return NULL;
+	}
+	HANDLE res = CreateFileW(
+		wide_filename,
+		GENERIC_READ,			// 只读
+		FILE_SHARE_READ,		// 可以和其它进程一起读（读共享）
+		NULL,					// lpSecurityAttributes 参数的默认值
+		OPEN_EXISTING,			// 只有存在时才打开，否则失败
+		FILE_ATTRIBUTE_NORMAL,	// 普通文件
+		NULL					// hTemplateFile 参数的默认值
+	);
+	free(wide_filename); wide_filename = NULL;
+	if (res == INVALID_HANDLE_VALUE)
+	{
+		DWORD last_err = GetLastError();
+		LogMe.et("Open file [ %s ] failed with error: %lu", filename, last_err);
+		return NULL;
+	}
+	else
+	{
+		return res;
+	}
+}
+
 static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 	node* connection_p = (*((params*)params_p)).node_p;
 	return clean_up_connection(connection_p, params_p, 0);
@@ -82,10 +134,23 @@ static int closed_cnt_filter(vlist this, long i) {
 	return ((node*)(this->get_const(this, i)))->open;
 }
 
+static void print_addrinfo_list(struct addrinfo *result) {
+	int num = 0;
+	for (;result != NULL; result = result->ai_next, num++)
+	{
+		char host_name[100];
+		char port_str[100];
+		getnameinfo(
+			result->ai_addr, result->ai_addrlen, host_name, sizeof(host_name), port_str, sizeof(port_str), NI_NUMERICHOST | NI_NUMERICSERV
+		);
+		LogMe.it("addrinfo%d ip: [ %s ] port %s", num, host_name, port_str);
+	}
+}
+
 void tcp_server_run(int port, int memmory_lack) {
 	const char* exit_words = "tcp server exited";
 	const char* hello_words = "tcp server started";
-	const long max_cnt_list_size = memmory_lack ? 6 : 1000;
+	const long max_cnt_list_size = memmory_lack ? 6 : 2000;
 
 	LogMe.it(hello_words);
 
@@ -117,6 +182,9 @@ void tcp_server_run(int port, int memmory_lack) {
 		LogMe.et(exit_words);
 		return;
 	}
+
+	// 打印指示信息列表
+	print_addrinfo_list(result);
 	
 	// 根据获取到的第一个指示信息创建 监听套接字
 	SOCKET ListenSocket = INVALID_SOCKET;

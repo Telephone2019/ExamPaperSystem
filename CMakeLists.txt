@@ -44,7 +44,7 @@ add_executable (ExamPaperSystem "ExamPaperSystem.c")
 # 添加自定义库的 CMAKE 文件所在的文件夹
 add_subdirectory(src)
 # 链接自定义库
-target_link_libraries(ExamPaperSystem PRIVATE VList LogMe)
+target_link_libraries(ExamPaperSystem PRIVATE VList LogMe VUtils)
 # 以下自定义库仅适用于 windows 平台
 target_link_libraries(ExamPaperSystem PRIVATE TCPServer KBHook)
 
