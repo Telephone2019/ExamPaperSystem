@@ -11,6 +11,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static int init_winsock() {
 	WSADATA wsaData;
@@ -30,10 +31,16 @@ static int init_winsock() {
 typedef struct node {
 	VLISTNODE
 		HANDLE handle;
+	DWORD tid;
+	SOCKET socket;
 	int open;
 } node;
 
-static vlist child_threads_list = NULL;
+typedef struct params {
+	node* node_p;
+} params;
+
+static vlist connections_list = NULL;
 static int has_open;
 
 // return non-zero to break
@@ -44,16 +51,41 @@ static int check_cth(vlist this, long i) {
 
 static int all_closed(){
 	has_open = 0;
-	if (child_threads_list != NULL)
+	if (connections_list != NULL)
 	{
-		child_threads_list->foreach(child_threads_list, check_cth);
+		connections_list->foreach(connections_list, check_cth);
 	}
 	return !has_open;
 }
 
-void tcp_server_run(int port) {
+static int clean_up_connection(node *connection_p, params *params_p, int returned) {
+	if (closesocket(connection_p->socket) != 0) {
+		LogMe.et("closesocket( %p ) [tid = %lu ] failed with error: %d", connection_p->socket, connection_p->tid, WSAGetLastError());
+	}
+	if (!CloseHandle(connection_p->handle))
+	{
+		LogMe.et("CloseHandle( %p ) [tid = %lu ] failed with error: %lu", connection_p->handle, connection_p->tid, GetLastError());
+	}
+	LogMe.nt("Connection thread [tid = %lu ] exit.", connection_p->tid);
+	connection_p->open = 0;
+	free(params_p);
+	return returned;
+}
+
+static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
+	node* connection_p = (*((params*)params_p)).node_p;
+	return clean_up_connection(connection_p, params_p, 0);
+}
+
+// return zero to remove current node from vlist
+static int closed_cnt_filter(vlist this, long i) {
+	return ((node*)(this->get_const(this, i)))->open;
+}
+
+void tcp_server_run(int port, int memmory_lack) {
 	const char* exit_words = "tcp server exited";
 	const char* hello_words = "tcp server started";
+	const long max_cnt_list_size = memmory_lack ? 6 : 1000;
 
 	LogMe.it(hello_words);
 
@@ -75,8 +107,8 @@ void tcp_server_run(int port) {
 	int iResult = getaddrinfo(
 		NULL, // Listen socket
 		vitoa(port, (char[30]){0}, 30), // Port
-		&hints,
-		&result
+		&hints, // Hints
+		&result // Results
 	);
 
 	if (iResult != 0) {
@@ -141,28 +173,94 @@ void tcp_server_run(int port) {
 	LogMe.it("listening...");
 
 	// 初始化线程列表
-	child_threads_list = make_vlist(sizeof(node));
+	connections_list = make_vlist(sizeof(node));
+	if (connections_list == NULL) {
+		LogMe.et("Unable to init connections_list");
+		closesocket(ListenSocket);
+		WSACleanup();
+		LogMe.et(exit_words);
+		return;
+	}
 
 	SOCKET ClientSocket;
 	struct sockaddr_storage client_sockaddr;
 	int client_sockaddr_len;
-	int accept_succeed;
+	enum reasons { AcceptFail = 0, MallocFail, CreateThreadFail, Debug } reason;
+	SOCKET fail_socket = INVALID_SOCKET;
 
 	// 接受新的 TCP 连接
 	while (
 		client_sockaddr_len = sizeof(client_sockaddr),
 		ClientSocket = accept(ListenSocket, &client_sockaddr, &client_sockaddr_len),
-		accept_succeed = (ClientSocket != INVALID_SOCKET)
+		reason = (ClientSocket != INVALID_SOCKET)
 		) {
-		LogMe.it("accepted: ");
-		accept_succeed = 0;
-		break;
+		LogMe.it("accepted client socket: %p", ClientSocket);
+		node* np = malloc(sizeof(node));
+		params* pp = malloc(sizeof(params));
+		if (np == NULL || pp == NULL)
+		{
+			fail_socket = ClientSocket;
+			closesocket(ClientSocket); ClientSocket = INVALID_SOCKET;
+			free(np); np = NULL;
+			free(pp); pp = NULL;
+			reason = MallocFail;
+			break;
+		}
+		np->handle = CreateThread(
+			NULL, // 默认安全属性
+			0, // 使用默认的栈初始物理内存大小（commit size）
+			connection_run, // 指向线程起始函数的指针
+			pp, // 要向线程起始函数传递的指针（此指针作为参数）
+			CREATE_SUSPENDED, // 创建线程，但不马上运行
+			&(np->tid) // 存放创建的线程的 ID 的地址
+		);
+		if (np->handle == NULL)
+		{
+			fail_socket = ClientSocket;
+			closesocket(ClientSocket); ClientSocket = INVALID_SOCKET;
+			free(np); np = NULL;
+			free(pp); pp = NULL;
+			reason = CreateThreadFail;
+			break;
+		}
+		np->socket = ClientSocket;
+		np->open = 1;
+		pp->node_p = np;
+		connections_list->quick_add(connections_list, np);
+		LogMe.wt("Connection thread [tid = %lu ] [clinet socket = %p ] start.", np->tid, np->socket);
+		ResumeThread(np->handle);
+
+		LogMe.bt("connections_list Size: %ld", connections_list->size);
+
+		if (connections_list->size > max_cnt_list_size)
+		{
+			LogMe.et("Removed %ld closed connections from connections_list", connections_list->flush(connections_list, closed_cnt_filter));
+		}
+
+		/* Debug Code */
+		/*fail_socket = ClientSocket;
+		reason = Debug;
+		break;*/
 	}
 
 	// 解释退出原因
-	if (!accept_succeed)
+	switch (reason)
 	{
-		LogMe.et("accept failed: %d", WSAGetLastError());
+	case AcceptFail:
+		LogMe.et("Accept failed wiht error: %d", WSAGetLastError());
+		break;
+	case MallocFail:
+		LogMe.et("[on accept socket %p ] Malloc failed", fail_socket);
+		break;
+	case CreateThreadFail:
+		LogMe.et("[on accept socket %p ] CreateThread failed", fail_socket);
+		break;
+	case Debug:
+		LogMe.et("[on accept socket %p ] Debug", fail_socket);
+		break;
+	default:
+		LogMe.et("[on accept socket %p ] Unknown Error", fail_socket);
+		break;
 	}
 
 	// 等待所有的连接线程都自动退出
@@ -171,7 +269,7 @@ void tcp_server_run(int port) {
 	LogMe.et("All the connection threads have exited");
 
 	// 释放线程列表
-	delete_vlist(child_threads_list, &child_threads_list);
+	delete_vlist(connections_list, &connections_list);
 
 	closesocket(ListenSocket);
 	WSACleanup();

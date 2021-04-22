@@ -28,10 +28,20 @@ int main()
     system("chcp 65001");
 #endif // LOGME_WINDOWS
 
+    logme_init();
+
     LogMe.e("error");
     LogMe.w("warning");
     LogMe.i("message");
     LogMe.n("normal");
+    LogMe.b("blue");
+
+    LogMe.et("error");
+    LogMe.wt("warning");
+    LogMe.it("message");
+    LogMe.nt("normal");
+    LogMe.bt("blue");
+
     LogMe.i("你好，大白！%s %u", "你的学号是", 20202021);
     vlist list = make_vlist(sizeof(node));
     for (size_t i = 0; i < 10; i++)
@@ -46,7 +56,7 @@ int main()
 
 #ifdef LOGME_WINDOWS
     kbhook_run_success();
-    tcp_server_run(63320);
+    tcp_server_run(63320, 1);
 #endif // LOGME_WINDOWS
 
     return 0;
