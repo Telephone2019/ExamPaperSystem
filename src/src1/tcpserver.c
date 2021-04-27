@@ -124,19 +124,57 @@ static HANDLE get_file_hd(const char *filename) {
 	}
 }
 
+// 不想再收发数据时，请调用此函数来主动关闭连接。
+// 调用此函数后无法再调用 recv() 或 send()。
+// 调用此函数意味着退出线程。
 static int active_shutdown(node *cnt_p, params *params_p, int returned) {
-	// 等待本机发送缓冲区内的数据都发送完后，主动发送 FIN
+	// 主动关闭连接意味着我们不想再收发数据，但关闭连接前应该保证我们先前想要发送的数据已被发送。
+	// 等待本机发送缓冲区内的数据都发送完后，按照TCP协议，友善地主动发送 FIN 向对方表明我们想关闭连接。对方收到 FIN 后，我们的写资源会自动释放。
 	if (shutdown(cnt_p->socket, SD_SEND) == SOCKET_ERROR) {
-		// 如果出错了，说明对方已不可达，可以强行释放 读资源+写资源
-		LogMe.et("actively shutdown( %p ) [tid = %lu ] failed with error: %d", cnt_p->socket, cnt_p->tid, WSAGetLastError());
+		// 如果出错了，说明对方已不可达，接下来释放写资源。由于不会再收到对方发送的数据且不再关心未处理的数据，接下来释放读资源。
+		LogMe.et("actively shutdown( %p , SD_SEND ) [tid = %lu ] failed with error: %d", cnt_p->socket, cnt_p->tid, WSAGetLastError());
 	}
 	else
 	{
-		// 如果没出错，对方尚未发送 FIN，我们本应等待对方的 FIN，但对方可能永远都不会发送 FIN（不管对方
-		// 是否是出于恶意），而且我们也不再关心对方继续发送的数据，因此强行释放 读资源+写资源，对方会收到
-		// “连接已重置” 的错误
+		// 如果没出错，写资源已被释放。按照TCP协议，对方尚未发送 FIN，我们本应等待对方继续发送的数据和 FIN，但对方可能
+		// 永远都不会发送 FIN（不管对方是否是出于恶意），而且我们也不再关心未处理的数据和对方继续发送的数据，因此接下来释放读资源。
+		// 读资源释放后，对方会收到 “连接已重置” 的错误。
 	}
-	// 强行释放 读资源+写资源
+	// 释放 读资源+写资源，释放 socket。
+	return clean_up_connection(cnt_p, params_p, returned);
+}
+
+// 当 recv() 函数返回 0 时，对方表明不再向我们发送数据并想要关闭连接。请不要再调用 recv()，并尽快发送完需要发送的数据，然后调用此函数来关闭连接。
+// 调用此函数后无法再调用 recv() 或 send()。
+// 调用此函数意味着退出线程。
+static int recv_0_shutdown(node* cnt_p, params* params_p, int returned) {
+	// 因为 recv() 函数表明我们接收到对方的 FIN，意味着对方不会再发送数据且我们也已经处理完对方发来的所有数据，所以释放读资源。
+	if (shutdown(cnt_p->socket, SD_RECEIVE) == SOCKET_ERROR) {
+		LogMe.et("recv_0 shutdown( %p , SD_RECEIVE ) [tid = %lu ] failed with error: %d", cnt_p->socket, cnt_p->tid, WSAGetLastError());
+	}
+	// 是时候关闭连接了，不要让对方久等。
+	// 关闭连接前应该保证我们先前想要发送的数据已被发送。
+	// 等待本机发送缓冲区内的数据都发送完后，按照TCP协议，友善地向对方发送 FIN，表明我们已经发送完需要发送的数据。对方收到 FIN 后，我们的写资源会自动释放。
+	if (shutdown(cnt_p->socket, SD_SEND) == SOCKET_ERROR) {
+		// 如果出错了，说明对方已不可达，接下来释放写资源。
+		LogMe.et("recv_0 shutdown( %p , SD_SEND ) [tid = %lu ] failed with error: %d", cnt_p->socket, cnt_p->tid, WSAGetLastError());
+	}
+	else
+	{
+		// 如果没出错，写资源已被释放。
+	}
+	// 释放 读资源+写资源，释放 socket。
+	return clean_up_connection(cnt_p, params_p, returned);
+}
+
+// send() 或 recv() 发生错误时，请不要再进行任何 socket 操作，立即调用此函数来关闭连接。
+// 调用此函数后无法再调用 recv() 或 send()。
+// 调用此函数意味着退出线程。
+static int error_shutdown(node* cnt_p, params* params_p, int returned) {
+	// send() 或 recv() 发生错误意味着对方已不可达，无法进行任何更多的读写操作，并且我们也已经处理完对方发来的所有数据。
+	// 此时直接释放 读资源+写资源。
+	// 
+	// 释放 读资源+写资源，释放 socket。
 	return clean_up_connection(cnt_p, params_p, returned);
 }
 
@@ -279,7 +317,7 @@ void tcp_server_run(int port, int memmory_lack) {
 		reason = (ClientSocket != INVALID_SOCKET)
 		) {
 		LogMe.it("accepted client socket: %p", ClientSocket);
-		// 设置套接字为连接成功后调用 closesocket() 时立即释放读写资源并返回，即 SO_DONTLINGER 设为 false
+		// 设置套接字为连接成功后调用 closesocket() 时立即释放读写资源、然后立即释放 socket 并返回，即 SO_DONTLINGER 设为 false
 		iResult = setsockopt(ClientSocket, SOL_SOCKET, SO_DONTLINGER, (char*)&((DWORD) { 0 }), sizeof(DWORD));
 		if (iResult == SOCKET_ERROR) {
 			LogMe.et("setsockopt for client socket [ %p ] SO_DONTLINGER failed with error: %u", WSAGetLastError());
