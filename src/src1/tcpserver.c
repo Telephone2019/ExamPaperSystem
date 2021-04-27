@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define DEFAULT_RECV_TIMEOUT_S 15
+#define DEFAULT_SEND_TIMEOUT_S 15
+
 static int init_winsock() {
 	WSADATA wsaData;
 
@@ -34,6 +37,8 @@ typedef struct node {
 	DWORD tid;
 	SOCKET socket;
 	int open;
+	long recv_timeout_s;
+	long send_timeout_s;
 } node;
 
 typedef struct params {
@@ -176,6 +181,20 @@ static int error_shutdown(node* cnt_p, params* params_p, int returned) {
 	// 
 	// 释放 读资源+写资源，释放 socket。
 	return clean_up_connection(cnt_p, params_p, returned);
+}
+
+// 此函数会将 node 结构体中的 socket 设置为阻塞模式，并设置读取超时时间为 node 结构体中的相应字段，然后调用 recv() 并返回 recv() 的返回值
+static int recv_t(node *np, char *buf, int len, int flags) {
+	ioctlsocket(np->socket, FIONBIO, &((u_long) {0})); // 0:blocking 1:non-blocking
+	setsockopt(np->socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&((DWORD) { ((DWORD)(np->recv_timeout_s))*1000 }), sizeof(DWORD));
+	return recv(np->socket, buf, len, flags);
+}
+
+// 此函数会将 node 结构体中的 socket 设置为阻塞模式，并设置发送超时时间为 node 结构体中的相应字段，然后调用 send() 并返回 send() 的返回值
+static int send_t(node *np, const char *buf, int len, int flags) {
+	ioctlsocket(np->socket, FIONBIO, &((u_long) { 0 })); // 0:blocking 1:non-blocking
+	setsockopt(np->socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&((DWORD) { ((DWORD)(np->send_timeout_s)) * 1000 }), sizeof(DWORD));
+	return send(np->socket, buf, len, flags);
 }
 
 static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
@@ -355,6 +374,8 @@ void tcp_server_run(int port, int memmory_lack) {
 			break;
 		}
 		np->socket = ClientSocket;
+		np->recv_timeout_s = DEFAULT_RECV_TIMEOUT_S;
+		np->send_timeout_s = DEFAULT_SEND_TIMEOUT_S;
 		np->open = 1;
 		pp->node_p = np;
 		connections_list->quick_add(connections_list, np);
