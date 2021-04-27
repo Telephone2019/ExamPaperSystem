@@ -124,9 +124,25 @@ static HANDLE get_file_hd(const char *filename) {
 	}
 }
 
+static int active_shutdown(node *cnt_p, params *params_p, int returned) {
+	// 等待本机发送缓冲区内的数据都发送完后，主动发送 FIN
+	if (shutdown(cnt_p->socket, SD_SEND) == SOCKET_ERROR) {
+		// 如果出错了，说明对方已不可达，可以强行释放 读资源+写资源
+		LogMe.et("actively shutdown( %p ) [tid = %lu ] failed with error: %d", cnt_p->socket, cnt_p->tid, WSAGetLastError());
+	}
+	else
+	{
+		// 如果没出错，对方尚未发送 FIN，我们本应等待对方的 FIN，但对方可能永远都不会发送 FIN（不管对方
+		// 是否是出于恶意），而且我们也不再关心对方继续发送的数据，因此强行释放 读资源+写资源，对方会收到
+		// “连接已重置” 的错误
+	}
+	// 强行释放 读资源+写资源
+	return clean_up_connection(cnt_p, params_p, returned);
+}
+
 static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 	node* connection_p = (*((params*)params_p)).node_p;
-	return clean_up_connection(connection_p, params_p, 0);
+	return active_shutdown(connection_p, params_p, 0); // 主动关闭连接
 }
 
 // return zero to remove current node from vlist
@@ -253,7 +269,7 @@ void tcp_server_run(int port, int memmory_lack) {
 	SOCKET ClientSocket;
 	struct sockaddr_storage client_sockaddr;
 	int client_sockaddr_len;
-	enum reasons { AcceptFail = 0, MallocFail, CreateThreadFail, Debug } reason;
+	enum reasons { AcceptFail = 0, MallocFail, CreateThreadFail, SetSockOptFail, Debug } reason;
 	SOCKET fail_socket = INVALID_SOCKET;
 
 	// 接受新的 TCP 连接
@@ -263,6 +279,15 @@ void tcp_server_run(int port, int memmory_lack) {
 		reason = (ClientSocket != INVALID_SOCKET)
 		) {
 		LogMe.it("accepted client socket: %p", ClientSocket);
+		// 设置套接字为连接成功后调用 closesocket() 时立即释放读写资源并返回，即 SO_DONTLINGER 设为 false
+		iResult = setsockopt(ClientSocket, SOL_SOCKET, SO_DONTLINGER, (char*)&((DWORD) { 0 }), sizeof(DWORD));
+		if (iResult == SOCKET_ERROR) {
+			LogMe.et("setsockopt for client socket [ %p ] SO_DONTLINGER failed with error: %u", WSAGetLastError());
+			fail_socket = ClientSocket;
+			closesocket(ClientSocket); ClientSocket = INVALID_SOCKET;
+			reason = SetSockOptFail;
+			break;
+		}
 		node* np = malloc(sizeof(node));
 		params* pp = malloc(sizeof(params));
 		if (np == NULL || pp == NULL)
