@@ -12,6 +12,8 @@ add_library(VList "vlist.c")
 
 add_library(VUtils "vutils.c")
 
+add_library(HttpParser "httpparser.c")
+
 # 仅适用于 windows 平台
 add_library(TCPServer "tcpserver.c")
 
@@ -23,6 +25,8 @@ target_include_directories(LogMe PUBLIC ${MyInclude1})
 target_include_directories(VList PUBLIC ${MyInclude1})
 
 target_include_directories(VUtils PUBLIC ${MyInclude1})
+
+target_include_directories(HttpParser PUBLIC ${MyInclude1})
 
 # 仅适用于 windows 平台
 target_include_directories(TCPServer PUBLIC ${MyInclude1})
