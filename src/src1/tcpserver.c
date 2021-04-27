@@ -71,7 +71,7 @@ static int clean_up_connection(node *connection_p, params *params_p, int returne
 	{
 		LogMe.et("CloseHandle( %p ) [tid = %lu ] failed with error: %lu", connection_p->handle, connection_p->tid, GetLastError());
 	}
-	LogMe.nt("Connection thread [tid = %lu ] exit.", connection_p->tid);
+	LogMe.nt("Connection thread [tid = %lu ] [client socket = %p ] exit.", connection_p->tid, connection_p->socket);
 	connection_p->open = 0;
 	free(params_p);
 	return returned;
@@ -133,6 +133,7 @@ static HANDLE get_file_hd(const char *filename) {
 // 调用此函数后无法再调用 recv() 或 send()。
 // 调用此函数意味着退出线程。
 static int active_shutdown(node *cnt_p, params *params_p, int returned) {
+	LogMe.it("active_shutdown( %p )", cnt_p->socket);
 	// 主动关闭连接意味着我们不想再收发数据，但关闭连接前应该保证我们先前想要发送的数据已被发送。
 	// 等待本机发送缓冲区内的数据都发送完后，按照TCP协议，友善地主动发送 FIN 向对方表明我们想关闭连接。对方收到 FIN 后，我们的写资源会自动释放。
 	if (shutdown(cnt_p->socket, SD_SEND) == SOCKET_ERROR) {
@@ -153,6 +154,7 @@ static int active_shutdown(node *cnt_p, params *params_p, int returned) {
 // 调用此函数后无法再调用 recv() 或 send()。
 // 调用此函数意味着退出线程。
 static int recv_0_shutdown(node* cnt_p, params* params_p, int returned) {
+	LogMe.bt("recv_0_shutdown( %p )", cnt_p->socket);
 	// 因为 recv() 函数表明我们接收到对方的 FIN，意味着对方不会再发送数据且我们也已经处理完对方发来的所有数据，所以释放读资源。
 	if (shutdown(cnt_p->socket, SD_RECEIVE) == SOCKET_ERROR) {
 		LogMe.et("recv_0 shutdown( %p , SD_RECEIVE ) [tid = %lu ] failed with error: %d", cnt_p->socket, cnt_p->tid, WSAGetLastError());
@@ -176,6 +178,7 @@ static int recv_0_shutdown(node* cnt_p, params* params_p, int returned) {
 // 调用此函数后无法再调用 recv() 或 send()。
 // 调用此函数意味着退出线程。
 static int error_shutdown(node* cnt_p, params* params_p, int returned) {
+	LogMe.et("error_shutdown( %p )", cnt_p->socket);
 	// send() 或 recv() 发生错误意味着对方已不可达，无法进行任何更多的读写操作，并且我们也已经处理完对方发来的所有数据。
 	// 此时直接释放 读资源+写资源。
 	// 
@@ -198,8 +201,31 @@ static int send_t(node *np, const char *buf, int len, int flags) {
 }
 
 static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
-	node* connection_p = (*((params*)params_p)).node_p;
-	return active_shutdown(connection_p, params_p, 0); // 主动关闭连接
+	node* np = (*((params*)params_p)).node_p;
+	const char* body = "<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n";
+	char resp[1000];
+	sprintf(resp, "HTTP/1.1 200 OK\r\nDate: Tue, 27 April 2021 22:55:30 GMT+8\r\nServer: Cone\r\nContent-Length: %d\r\nContent-Type: text/html\r\nConnection: keep-alive\r\n\r\n%s", strlen(body), body);
+	int send_res = send_t(np, resp, strlen(resp), 0);
+	LogMe.bt("send_res = %d", send_res);
+	for (int i = 1;i < 10000;i++) {
+		char a;
+		int recv_res = recv_t(np, &a, 1, 0);
+		if (recv_res > 0)
+		{
+			putchar(a);
+		}
+		else if (recv_res == 0)
+		{
+			return recv_0_shutdown(np, params_p, 0);
+		}
+		else
+		{
+			LogMe.et("recv_t() on socket [ %p ] failed with error: %d", np->socket, WSAGetLastError());
+			return error_shutdown(np, params_p, 1);
+		}
+	}
+	putchar('\n');
+	return active_shutdown(np, params_p, 0); // 主动关闭连接
 }
 
 // return zero to remove current node from vlist
@@ -379,7 +405,7 @@ void tcp_server_run(int port, int memmory_lack) {
 		np->open = 1;
 		pp->node_p = np;
 		connections_list->quick_add(connections_list, np);
-		LogMe.wt("Connection thread [tid = %lu ] [clinet socket = %p ] start.", np->tid, np->socket);
+		LogMe.wt("Connection thread [tid = %lu ] [client socket = %p ] start.", np->tid, np->socket);
 		ResumeThread(np->handle);
 
 		LogMe.bt("connections_list Size: %ld", connections_list->size);
