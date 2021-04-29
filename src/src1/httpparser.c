@@ -61,7 +61,8 @@ int find_sub_str(size_t max_call_time, char(*generator)(void*), void* generator_
 		return -2;
 	}
 
-	size_t head_index = -1;
+	// size_t is unsigned type, SIZE_MAX plus 1 will overflow to 0
+	size_t head_index = SIZE_MAX;
 
 	shifted += plen;
 	if (shifted > max_call_time)
@@ -72,8 +73,8 @@ int find_sub_str(size_t max_call_time, char(*generator)(void*), void* generator_
 	bm_shift(&head_index, plen, temp, generator, generator_param_p);
 
 	loop:
-	size_t tail_index = head_index - plen + 1;
-	for (size_t look_back_index = head_index; look_back_index >= tail_index; look_back_index--)
+	size_t tail_index = head_index + 1 - plen;
+	for (ptrdiff_t look_back_index = head_index; look_back_index >= (ptrdiff_t)tail_index; look_back_index--)
 	{
 		size_t pattern_index = look_back_index - tail_index;
 		char pch = pattern[pattern_index];
