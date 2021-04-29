@@ -1,20 +1,29 @@
-#include "tcpserver.h"
-
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#include "tcpserver.h"
 
 #include <logme.h>
 #include <vutils.h>
 #include <vlist.h>
+#include <httputils.h>
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <MSWSock.h>
+#include <ntstatus.h>
+#include <bcrypt.h>
+#include <time.h>
 
 #define DEFAULT_RECV_TIMEOUT_S 15
 #define DEFAULT_SEND_TIMEOUT_S 15
+
+#define MIME_TYPE_HTML "text/html"
+#define MIME_TYPE_BIN "application/octet-stream"
+
+#define HTTP_CHARSET_UTF8 "utf-8"
 
 static int init_winsock() {
 	WSADATA wsaData;
@@ -88,6 +97,7 @@ static char16_t *get_utf_16_file_name_from_utf8(const char* u8fn) {
 	return w_fn;
 }
 
+// 获取文件句柄（只读），返回 NULL 表示失败，否则返回指定文件的句柄
 static HANDLE get_file_hd(const char *filename) {
 	const char* prefix = "\\\\?\\";
 	const char* suffix = "";
@@ -194,25 +204,197 @@ static int recv_t(node *np, char *buf, int len, int flags) {
 }
 
 // 此函数会将 node 结构体中的 socket 设置为阻塞模式，并设置发送超时时间为 node 结构体中的相应字段，然后调用 send() 并返回 send() 的返回值
+// 调用 send() 的 len 参数和返回值会被打印到日志中
+// 如果 send() 返回错误，错误信息会被打印到日志中
 static int send_t(node *np, const char *buf, int len, int flags) {
 	ioctlsocket(np->socket, FIONBIO, &((u_long) { 0 })); // 0:blocking 1:non-blocking
 	setsockopt(np->socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&((DWORD) { ((DWORD)(np->send_timeout_s)) * 1000 }), sizeof(DWORD));
-	return send(np->socket, buf, len, flags);
+	int s_res = send(np->socket, buf, len, flags);
+	if (s_res != SOCKET_ERROR)
+	{
+		LogMe.it("call send() on socket [ %p ] with len=%d and return=%d", np->socket, len, s_res);
+	}
+	else
+	{
+		LogMe.et("call send() on socket [ %p ] with len=%d and return=SOCKET_ERROR <WSAGetLastError()=%d>", np->socket, len, WSAGetLastError());
+	}
+	return s_res;
+}
+
+// 此函数先将 node 结构体中的 socket 设置为阻塞模式，然后通过 socket 传输文件。
+// 成功返回 0，失败返回 non-zero。
+// 若失败，查看日志以获取详细信息。
+static int transmit_file(node* np, HANDLE hFile, unsigned long long file_size, const char* filename) {
+	const unsigned long long max_size = 2147483646ULL;
+	// blocking mode
+	ioctlsocket(np->socket, FIONBIO, &((u_long) { 0 })); // 0:blocking 1:non-blocking
+	while (file_size > 0ULL)
+	{
+		unsigned long long trans_size = file_size > max_size ? max_size : file_size;
+		BOOL res = TransmitFile(
+			np->socket,
+			hFile,
+			trans_size,
+			0,
+			NULL, // blocking mode
+			NULL,
+			0
+		);
+		if (!res)
+		{
+			if (res == STATUS_DEVICE_NOT_READY)
+			{
+				LogMe.et("transmit_file() failed on socket [ %p ] [ file = \"%s\" ] with error: STATUS_DEVICE_NOT_READY", np->socket, filename);
+				return 1;
+			}
+			int last_err = WSAGetLastError();
+			//if (last_err == WSA_IO_PENDING || last_err == ERROR_IO_PENDING)
+			//{} else {
+				LogMe.et("transmit_file() failed on socket [ %p ] [ file = \"%s\" ] with error: %d", np->socket, filename, last_err);
+				return 2;
+			//}
+		}
+		file_size -= trans_size;
+	}
+	LogMe.it("transmit_file() completed on socket [ %p ] [ file = \"%s\" ]", np->socket, filename);
+	return 0;
+}
+
+// 此函数调用 send_t() 向客户端回复文本请求。
+// keep_alive 参数仅仅用于生成回复报文字段，实际断开连接需要调用者手动进行。
+// 返回值：
+// 0 : 回复成功
+// non-zero : 回复失败，不应再进行更多的 socket 操作，应尽快断开并清理连接
+// 此函数的日志输出是完备的。若失败，查看日志以获取详细信息。
+static int send_text(node* np, int status_code, const char * reason_phrase, int keep_alive, const char* text_body_str_could_be_NULL, const char* MIME_type, const char *text_body_charset, int is_download, const char *download_filename) {
+	char resp[5000];
+	http_response(
+		resp,
+		sizeof(resp),
+		status_code,
+		reason_phrase,
+		keep_alive,
+		NULL,
+		text_body_str_could_be_NULL ? strlen(text_body_str_could_be_NULL) : 0,
+		MIME_type,
+		text_body_charset,
+		is_download,
+		download_filename
+	);
+	if (
+		send_t(np, resp, strlen(resp), 0) == SOCKET_ERROR ||
+		( text_body_str_could_be_NULL ? (send_t(np, text_body_str_could_be_NULL, strlen(text_body_str_could_be_NULL), 0) == SOCKET_ERROR) : 0 )
+		) {
+		return -1;
+	}
+	else {
+		return 0;
+	}
+}
+
+// 此函数调用 send_t() 和 transmit_file() 向客户端回复文件请求：
+// 如果打开文件句柄成功且成功获取文件大小，那么传输文件；
+// 如果打开文件句柄成功但获取文件大小失败，回复 500 页面；
+// 如果打开文件句柄失败，回复 404 页面。
+// 若失败，查看日志以获取详细信息。
+// keep_alive 参数仅仅用于生成回复报文字段，实际断开连接需要调用者手动进行。
+// 返回值：（大于等于 0 表示没有连接错误发生，小于 0 表示发生了连接错误）
+// 0 : 文件传输成功
+// 1 : 回复 404 成功
+// 2 : 回复 500 成功
+// -1 : 回复或传输文件时失败，不应再进行更多的 socket 操作，应尽快断开并清理连接
+// 此函数的日志输出是完备的。
+static int send_file(node* np, const char* filename, int keep_alive, const char *MIME_type, const char *file_charset, int is_download, const char *download_filename) {
+	char resp[5000];
+	HANDLE hFile = get_file_hd(filename);
+	if (hFile == NULL) {
+		LogMe.et("send_file() [socket = %p ] [file = \"%s\" ] could not get file handle", np->socket, filename);
+		return send_text(
+			np,
+			404,
+			"Not Found",
+			keep_alive,
+			"<html>\n<body>\n<h1>File Not Found 文件找不到</h1>\n</body>\n</html>\n",
+			MIME_TYPE_HTML,
+			HTTP_CHARSET_UTF8,
+			0, NULL
+		) == 0 ? 1 : -1;
+	} else {
+		LARGE_INTEGER fSize;
+		if (GetFileSizeEx(hFile, &fSize) == 0) {
+			CloseHandle(hFile); hFile = NULL;
+			LogMe.et("send_file() [socket = %p ] [file = \"%s\" ] could not get the file size due to error: %lu", np->socket, filename, GetLastError());
+			return send_text(
+				np,
+				500,
+				"Internal Server Error",
+				keep_alive,
+				"<html>\n<body>\n<h1>Internal Server Error 发生了错误</h1>\n</body>\n</html>\n",
+				MIME_TYPE_HTML,
+				HTTP_CHARSET_UTF8,
+				0, NULL
+			) == 0 ? 2 : -1;
+		} else {
+			LogMe.it("sendind file [ \"%s\" ] <Size: %lld> to socket [ %p ] ...", filename, fSize.QuadPart, np->socket);
+			http_response(
+				resp,
+				sizeof(resp),
+				200,
+				"OK",
+				keep_alive,
+				NULL,
+				fSize.QuadPart,
+				MIME_type,
+				file_charset,
+				is_download,
+				download_filename
+			);
+			if (
+				send_t(np, resp, strlen(resp), 0) == SOCKET_ERROR ||
+				transmit_file(np, hFile, fSize.QuadPart, filename) != 0
+				) {
+				CloseHandle(hFile); hFile = NULL;
+				return -1;
+			}
+			else {
+				CloseHandle(hFile); hFile = NULL;
+				return 0;
+			}
+		}
+	}
 }
 
 static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 	node* np = (*((params*)params_p)).node_p;
-	const char* body = "<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n";
-	char resp[1000];
-	sprintf(resp, "HTTP/1.1 200 OK\r\nDate: Tue, 27 April 2021 22:55:30 GMT+8\r\nServer: Cone\r\nContent-Length: %d\r\nContent-Type: text/html\r\nConnection: keep-alive\r\n\r\n%s", strlen(body), body);
-	int send_res = send_t(np, resp, strlen(resp), 0);
-	LogMe.bt("send_res = %d", send_res);
-	for (int i = 1;i < 10000;i++) {
+	char req[10001] = {0};
+	int sent = 0;
+	for (int i = 0;i < sizeof(req) - 1;i++) {
 		char a;
 		int recv_res = recv_t(np, &a, 1, 0);
 		if (recv_res > 0)
 		{
+			req[i] = a;
 			putchar(a);
+			if (strstr(req, "abcdefg") != NULL && sent == 0)
+			{
+				const char* origin_name = "Windows安装程序.jpg";
+				char encoded_name[500];
+				url_encode(origin_name, strlen(origin_name), encoded_name, sizeof(encoded_name), 0);
+				if (
+					send_file(
+						np,
+						"D:\\同步盘\\Pictures\\微信公众号二维码\\qrcode_guet.jpg",
+						1,
+						MIME_TYPE_BIN,
+						NULL,
+						1,
+						encoded_name
+					) < 0
+					) {
+					LogMe.et("send_file() on socket [ %p ] failed", np->socket);
+					return error_shutdown(np, params_p, 2);
+				}
+			}
 		}
 		else if (recv_res == 0)
 		{
