@@ -23,11 +23,11 @@
 
 #else
 
-#define GREEN "\e[1;32m"
-#define YELLOW "\e[1;33m"
-#define RED "\e[1;31m"
-#define BLUE "\e[1;34m"
-#define NORMAL "\e[0m"
+#define GREEN "\x1B[1;32m"
+#define YELLOW "\x1B[1;33m"
+#define RED "\x1B[1;31m"
+#define BLUE "\x1B[1;34m"
+#define NORMAL "\x1B[0m"
 #define LINE "\n"
 
 #endif
@@ -151,18 +151,23 @@ static void log_me_b__(const char* text, ...) {
 
 static void format_time(char* output, size_t len) {
     time_t rawtime;
-    struct tm* timeinfo;
+    struct tm timeinfo;
 
     time(&rawtime);
-    timeinfo = localtime(&rawtime);
+
+#ifdef LOGME_MSVC
+    localtime_s(&timeinfo, &rawtime);
 
     snprintf(output, len, "[ %04d-%02d-%02d %02d:%02d:%02d ]",
-        timeinfo->tm_year + 1900,
-        timeinfo->tm_mon + 1,
-        timeinfo->tm_mday,
-        timeinfo->tm_hour,
-        timeinfo->tm_min,
-        timeinfo->tm_sec);
+        timeinfo.tm_year + 1900,
+        timeinfo.tm_mon + 1,
+        timeinfo.tm_mday,
+        timeinfo.tm_hour,
+        timeinfo.tm_min,
+        timeinfo.tm_sec);
+#else
+    snprintf(output, len, "[ %lld ]", (long long)rawtime);
+#endif // LOGME_MSVC
 }
 
 static char* with_time(const char *s) {
