@@ -3,6 +3,7 @@
 #include <vlist.h>
 #include <vutils.h>
 #include <macros.h>
+#include <httpparser.h>
 #include <stdlib.h>
 
 #ifdef LOGME_WINDOWS
@@ -45,6 +46,14 @@ int main()
     LogMe.bt("blue");
 
     LogMe.i("你好，大白！%s %u", "你的学号是", 20202021);
+
+    const char* parent_str;
+    const char* sub_str;
+
+    parent_str = "你的学号是";
+    sub_str = "学";
+    LogMe.i("你好，大白！%s 的子串 %s 的查找结果是 %d", parent_str, sub_str, find_sub_str(0, NULL, NULL, parent_str, sub_str));
+
     vlist list = make_vlist(sizeof(node));
     for (size_t i = 0; i < 10; i++)
     {

@@ -377,13 +377,13 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 			putchar(a);
 			if (strstr(req, "abcdefg") != NULL && sent == 0)
 			{
-				const char* origin_name = "Windows安装程序.jpg";
+				const char* origin_name = "GUET课程表v5.0.2.apk";
 				char encoded_name[500];
 				url_encode(origin_name, strlen(origin_name), encoded_name, sizeof(encoded_name), 0);
 				if (
 					send_file(
 						np,
-						"D:\\同步盘\\Pictures\\微信公众号二维码\\qrcode_guet.jpg",
+						"D:\\同步盘\\Documents\\Code\\CourseTable\\app\\release\\GUET课程表v5.0.2.apk",
 						1,
 						MIME_TYPE_BIN,
 						NULL,
