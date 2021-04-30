@@ -61,8 +61,12 @@ int find_sub_str(size_t max_call_time, char(*generator)(void*), void* generator_
 		return -2;
 	}
 
+#ifdef SIZE_MAX
 	// size_t is unsigned type, SIZE_MAX plus 1 will overflow to 0
 	size_t head_index = SIZE_MAX;
+#else
+	size_t head_index = (size_t)0-(size_t)1;
+#endif // SIZE_MAX
 
 	shifted += plen;
 	if (shifted > max_call_time)
@@ -72,7 +76,7 @@ int find_sub_str(size_t max_call_time, char(*generator)(void*), void* generator_
 	}
 	bm_shift(&head_index, plen, temp, generator, generator_param_p);
 
-	loop:
+loop:;
 	size_t tail_index = head_index + 1 - plen;
 	for (ptrdiff_t look_back_index = head_index; look_back_index >= (ptrdiff_t)tail_index; look_back_index--)
 	{
