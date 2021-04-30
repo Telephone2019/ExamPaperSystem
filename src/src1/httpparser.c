@@ -33,7 +33,7 @@ static long long last_index_of_ch(const char* s, char ch, long long before_index
 // 如果某次 generator 调用失败，那么此次 p_head_index 下标不会增加，此次 buf 也不会被写入，
 // 此次滑动取消（只是取消这一个字符距离的滑动，不是取消所有滑动），同时立即停止滑动。
 // 返回值：成功滑动的距离（字符为单位）
-static size_t bm_shift(size_t* p_head_index, size_t num, char *buf, char(*generator)(void*,int*), void *generator_param_p) {
+static size_t bm_shift(size_t* p_head_index, size_t num, char *buf, char(*generator)(void*,int*), void *generator_param_p, char* generated_buf, size_t generated_buf_len, size_t *generated_used_len_p) {
 	if (generator)
 	{
 		for (size_t i = 0; i < num; i++)
@@ -45,6 +45,10 @@ static size_t bm_shift(size_t* p_head_index, size_t num, char *buf, char(*genera
 				return i;
 			}
 			buf[++(*p_head_index)] = read_ch;
+			if (*generated_used_len_p < generated_buf_len)
+			{
+				generated_buf[(*generated_used_len_p)++] = read_ch;
+			}
 		}
 	}
 	else
@@ -54,9 +58,10 @@ static size_t bm_shift(size_t* p_head_index, size_t num, char *buf, char(*genera
 	return num;
 }
 
-int find_sub_str(size_t max_call_time, char(*generator)(void*,int*), void* generator_param_p, const char *str, const char *pattern, size_t *call_time) {
+int find_sub_str(size_t max_call_time, char(*generator)(void*,int*), void* generator_param_p, const char *str, const char *pattern, size_t *call_time, char* generated_buf, size_t generated_buf_len) {
 	const size_t plen = strlen(pattern);
 	size_t shifted = 0;
+	size_t generated_used_len = 0;
 	max_call_time = (str ? strlen(str) : max_call_time);
 	generator = (str ? NULL : generator);
 	generator_param_p = (str ? NULL : generator_param_p);
@@ -80,7 +85,7 @@ int find_sub_str(size_t max_call_time, char(*generator)(void*,int*), void* gener
 		if (!str)free(temp);
 		return -1;
 	}
-	size_t a_shift = bm_shift(&head_index, plen, temp, generator, generator_param_p);
+	size_t a_shift = bm_shift(&head_index, plen, temp, generator, generator_param_p, generated_buf, generated_buf_len, &generated_used_len);
 	if (a_shift < plen)
 	{
 		shifted -= plen; shifted += a_shift;
@@ -121,7 +126,7 @@ loop:;
 				if (!str)free(temp);
 				return -1;
 			}
-			size_t a_shift = bm_shift(&head_index, shift_len, temp, generator, generator_param_p);
+			size_t a_shift = bm_shift(&head_index, shift_len, temp, generator, generator_param_p, generated_buf, generated_buf_len, &generated_used_len);
 			if (a_shift < shift_len)
 			{
 				shifted -= shift_len; shifted += a_shift;

@@ -41,6 +41,6 @@ target_include_directories(TCPServer PUBLIC ${MyInclude1})
 target_link_libraries(HttpParser PRIVATE VUtils)
 
 # 仅适用于 windows 平台
-target_link_libraries(TCPServer PRIVATE LogMe Ws2_32 VUtils VList Mswsock HttpUtils)
+target_link_libraries(TCPServer PRIVATE LogMe Ws2_32 VUtils VList Mswsock HttpUtils HttpParser)
 
 ##########################################################################################################

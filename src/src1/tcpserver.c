@@ -7,6 +7,7 @@
 #include <vutils.h>
 #include <vlist.h>
 #include <httputils.h>
+#include <httpparser.h>
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -22,6 +23,7 @@
 
 #define MIME_TYPE_HTML "text/html"
 #define MIME_TYPE_BIN "application/octet-stream"
+#define MIME_TYPE_JPEG "image/jpeg"
 
 #define HTTP_CHARSET_UTF8 "utf-8"
 
@@ -240,13 +242,12 @@ static int transmit_file(node* np, HANDLE hFile, unsigned long long file_size, c
 			NULL,
 			0
 		);
-		if (!res)
+		if (res == STATUS_DEVICE_NOT_READY)
 		{
-			if (res == STATUS_DEVICE_NOT_READY)
-			{
-				LogMe.et("transmit_file() failed on socket [ %p ] [ file = \"%s\" ] with error: STATUS_DEVICE_NOT_READY", np->socket, filename);
-				return 1;
-			}
+			LogMe.et("transmit_file() failed on socket [ %p ] [ file = \"%s\" ] with error: STATUS_DEVICE_NOT_READY", np->socket, filename);
+			return 1;
+		} else if (!res)
+		{	
 			int last_err = WSAGetLastError();
 			//if (last_err == WSA_IO_PENDING || last_err == ERROR_IO_PENDING)
 			//{} else {
@@ -364,50 +365,93 @@ static int send_file(node* np, const char* filename, int keep_alive, const char 
 	}
 }
 
+typedef struct generator_params {
+	node* np;
+	int recv_t_return_val;
+} generator_params;
+
+static char generator(void* params_p, int* continue_flag_p) {
+	generator_params* gpp = params_p;
+	node* np = gpp->np;
+	char buf[1];
+	gpp->recv_t_return_val = recv_t(np, buf, sizeof(buf), 0);
+	*continue_flag_p = (gpp->recv_t_return_val > 0);
+	return buf[0];
+}
+
 static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 	node* np = (*((params*)params_p)).node_p;
-	char req[10001] = {0};
-	int sent = 0;
-	for (int i = 0;i < sizeof(req) - 1;i++) {
-		char a;
-		int recv_res = recv_t(np, &a, 1, 0);
-		if (recv_res > 0)
-		{
-			req[i] = a;
-			putchar(a);
-			if (strstr(req, "abcdefg") != NULL && sent == 0)
-			{
-				const char* origin_name = "GUET课程表v5.0.2.apk";
-				char encoded_name[500];
-				url_encode(origin_name, strlen(origin_name), encoded_name, sizeof(encoded_name), 0);
-				if (
-					send_file(
-						np,
-						"D:\\同步盘\\Documents\\Code\\CourseTable\\app\\release\\GUET课程表v5.0.2.apk",
-						1,
-						MIME_TYPE_BIN,
-						NULL,
-						1,
-						encoded_name
-					) < 0
-					) {
-					LogMe.et("send_file() on socket [ %p ] failed", np->socket);
-					return error_shutdown(np, params_p, 2);
-				}
-			}
+	generator_params gp = { .np = np };
+	size_t read_num = 0;
+	char req[51] = { 0 };
+	int find_res = find_sub_str(50, generator, &gp, NULL, "abcdefg", &read_num, req, sizeof(req));
+	if (find_res >= 0)
+	{
+		// found
+		LogMe.it("[ %p ] %s", np->socket, req);
+		const char* origin_name = "hello_world_你好——世界.jpg";
+		char encoded_name[500];
+		url_encode(origin_name, strlen(origin_name), encoded_name, sizeof(encoded_name), 0);
+		if (
+			send_file(
+				np,
+				"D:\\同步盘\\Pictures\\0 (手机).jpg",
+				0,
+				MIME_TYPE_JPEG,
+				NULL,
+				1,
+				encoded_name
+			) < 0
+			) {
+			LogMe.et("send_file() on socket [ %p ] failed", np->socket);
+			return error_shutdown(np, params_p, 6);
 		}
-		else if (recv_res == 0)
+		return active_shutdown(np, params_p, 0);
+	}
+	else if (find_res == -1)
+	{
+		// not found and no error
+		if (
+			send_text(
+				np,
+				404,
+				"Not Found",
+				0,
+				"<html>\n<body>\n<h1>File Not Found 文件找不到</h1>\n</body>\n</html>\n",
+				MIME_TYPE_HTML,
+				HTTP_CHARSET_UTF8,
+				0,
+				NULL
+			) != 0
+			)
 		{
-			return recv_0_shutdown(np, params_p, 0);
+			return error_shutdown(np, params_p, 8);
+		}
+		return active_shutdown(np, params_p, 7);
+	}
+	else if (find_res == -2)
+	{
+		// malloc fail
+		LogMe.et("malloc fail on socket [ %p ] when parsing HTTP request", np->socket);
+		return active_shutdown(np, params_p, 3);
+	}
+	else if (find_res == -3)
+	{
+		// generator fail
+		if (gp.recv_t_return_val == 0)
+		{
+			// recv 0
+			LogMe.bt("recv_0 on socket [ %p ] when parsing HTTP request", np->socket);
+			return recv_0_shutdown(np, params_p, 4);
 		}
 		else
 		{
-			LogMe.et("recv_t() on socket [ %p ] failed with error: %d", np->socket, WSAGetLastError());
-			return error_shutdown(np, params_p, 1);
+			// recv error
+			LogMe.et("recv_t() on socket [ %p ] failed when parsing HTTP request with error: %d", np->socket, WSAGetLastError());
+			return error_shutdown(np, params_p, 5);
 		}
 	}
-	putchar('\n');
-	return active_shutdown(np, params_p, 0); // 主动关闭连接
+	return active_shutdown(np, params_p, -1); // 主动关闭连接
 }
 
 // return zero to remove current node from vlist

@@ -52,15 +52,15 @@ int main()
 
     parent_str = "你的学号是";
     sub_str = "学";
-    LogMe.i("你好，大白！%s 的子串 %s 的查找结果是 %d", parent_str, sub_str, find_sub_str(0, NULL, NULL, parent_str, sub_str, NULL));
+    LogMe.i("你好，大白！%s 的子串 %s 的查找结果是 %d", parent_str, sub_str, find_sub_str(0, NULL, NULL, parent_str, sub_str, NULL, NULL, 0));
 
     parent_str = "你的学号是";
     sub_str = "你";
-    LogMe.i("你好，大白！%s 的子串 %s 的查找结果是 %d", parent_str, sub_str, find_sub_str(0, NULL, NULL, parent_str, sub_str, NULL));
+    LogMe.i("你好，大白！%s 的子串 %s 的查找结果是 %d", parent_str, sub_str, find_sub_str(0, NULL, NULL, parent_str, sub_str, NULL, NULL, 0));
 
     parent_str = "你的学号是";
     sub_str = "我";
-    LogMe.i("你好，大白！%s 的子串 %s 的查找结果是 %d", parent_str, sub_str, find_sub_str(0, NULL, NULL, parent_str, sub_str, NULL));
+    LogMe.i("你好，大白！%s 的子串 %s 的查找结果是 %d", parent_str, sub_str, find_sub_str(0, NULL, NULL, parent_str, sub_str, NULL, NULL, 0));
 
     vlist list = make_vlist(sizeof(node));
     for (size_t i = 0; i < 10; i++)
