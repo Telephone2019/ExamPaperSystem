@@ -85,6 +85,7 @@ int find_sub_str(size_t max_call_time, char(*generator)(void*,int*), void* gener
 	{
 		shifted -= plen; shifted += a_shift;
 		*call_time = shifted;
+		if (!str)free(temp);
 		return -3;
 	}
 
@@ -125,6 +126,7 @@ loop:;
 			{
 				shifted -= shift_len; shifted += a_shift;
 				*call_time = shifted;
+				if (!str)free(temp);
 				return -3;
 			}
 			goto loop;
