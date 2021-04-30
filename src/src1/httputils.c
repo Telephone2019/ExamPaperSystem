@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <time.h>
 
+#include <macros.h>
+
 #define HTTP_KEEP_ALIVE_VALUE "keep-alive"
 #define HTTP_NOT_KEEP_ALIVE_VALUE "close"
 
@@ -11,6 +13,7 @@ void http_response_date_line(char* buf, size_t buf_len) {
 	const char* months[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
 		"Aug", "Sep", "Oct", "Nov", "Dec" };
 
+#ifdef LOGME_MSVC
 	struct tm stm;
 
 	errno_t get_time_res = gmtime_s(&stm, &((time_t) { time(NULL) }));
@@ -28,6 +31,12 @@ void http_response_date_line(char* buf, size_t buf_len) {
 			days[stm.tm_wday], stm.tm_mday, months[stm.tm_mon],
 			stm.tm_year + 1900, stm.tm_hour, stm.tm_min, stm.tm_sec);
 	}
+#else
+	if (buf_len > 0)
+	{
+		*buf = '\0';
+	}
+#endif // LOGME_MSVC
 }
 
 void http_response_content_length_line(char* buf, size_t buf_len, unsigned long long content_len) {
