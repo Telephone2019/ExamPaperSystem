@@ -2,9 +2,9 @@
 
 #include <windows.h>
 
-#define KBHDLL "KeyBoardDll"
-
-static HHOOK global_keyboard_hook = NULL;
+HOOKPROC hkprcSysMsg;
+static HINSTANCE hinstDLL;
+static HHOOK hhookSysMsg;
 
 static void KeyBoardHook_Main();
 
@@ -21,72 +21,64 @@ DllExport int kbhook_run_success() {
 /// <param name="wParam">虚拟按键的代号</param>
 /// <param name="lParam">键状态</param>
 /// <returns></returns>
+/// 如果是使用WH_KEYBOARD, 要写在DLL中, 通过注入线程来调用, 这里要注意传入Hook线程的窗口句柄,用来Post一个消息通知Hook线程来处理消息
+DllExport LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+
+	if (wParam == 'z' || wParam == VK_NUMPAD0 || GetKeyState(VK_LWIN) < 0) {
+		return 1;
+	}
+
+	return CallNextHookEx(hhookSysMsg, nCode, wParam, lParam);
+}
+
+
+//如果是使用WH_KEYBOARD_LL, 直接写在Hook线程就可以了
 DllExport LRESULT CALLBACK LLKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 
-	if (nCode < 0 || nCode == HC_NOREMOVE) {
-		// 如果代码小于零，则挂钩过程必须将消息传递给CallNextHookEx函数，而无需进一步处理，并且应返回CallNextHookEx返回的值。(来自官网手册)
-		return CallNextHookEx(global_keyboard_hook, nCode, wParam, lParam);
-	}
-	if (lParam & 0x40000000) {
-		// 【第30位的含义】键状态。如果在发送消息之前按下了键，则值为1。如果键被释放，则为0。(来自官网手册)
-		// 我们只考虑被按下后松开的状态
-		if ((wParam == VK_F5) ||
-			(wParam == VK_F4) ||
-			(wParam == VK_NUMPAD0)){
-			InstallHook();
-		}
-	
-		// Simulate a key press
-		//keybd_event(VK_NUMPAD1,0x45, KEYEVENTF_EXTENDEDKEY | 0, 0);
+	//if()
 
-		// Simulate a key release
-		//keybd_event(VK_NUMPAD1,0x45,KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP,0);
+	SetWindowsHookExA(WH_KEYBOARD, LLKeyboardProc, hinstDLL, 0);
 
-		return CallNextHookEx(global_keyboard_hook, nCode, wParam, lParam);
-	}
-
-	return CallNextHookEx(global_keyboard_hook, nCode, wParam, lParam);
+	return CallNextHookEx(hhookSysMsg, nCode, wParam, lParam);
 }
 
+
+
+
+/*
+您必须将全球挂钩程序置于与安装挂钩程序的应用程序分开的 DLL 中。安装应用程序必须具有 DLL 模块的句柄，然后才能安装挂钩程序。
+*/
 DllExport int InstallHook() {
-	// 【参数1】钩子的类型，这里代表键盘钩子
-	// 【参数2】钩子处理的函数
-	// 【参数3】获取模块,KBDLL为DLL的项目名称
-	// 【参数4】线程的ID，如果是全局钩子的话，这里要填0，如果是某个线程的钩子，那就需要写线程的ID
-	
-	HOOKPROC hkprcSysMsg;
-	static HINSTANCE hinstDLL;
-	hinstDLL = LoadLibrary(TEXT("D:\\My_Program\\ExamPaperSystem\\out\\build\\x64-Debug (默认值)\\KBHook.dll"));
-	hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "LLKeyboardProc");
-	global_keyboard_hook = SetWindowsHookEx(WH_KEYBOARD_LL, hkprcSysMsg, hinstDLL, 0);
-	//global_keyboard_hook = SetWindowsHookEx(WH_KEYBOARD_LL, LLKeyboardProc, GetModuleHandle(KBHDLL), 0);
-	if (global_keyboard_hook == NULL) {
-		
-		return 0;
+
+	hinstDLL = LoadLibrary(TEXT("KBHook.dll"));
+	if (hinstDLL) {
+		hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "KeyboardProc");
 	}
-	return 1;
-
-
-	/*
-	HOOKPROC hkprcSysMsg;
-	static HINSTANCE hinstDLL;
-	static HHOOK hhookSysMsg;
-
-	hinstDLL = LoadLibrary(TEXT("c:\\myapp\\sysmsg.dll"));
-	hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "SysMessageProc");
-
-	hhookSysMsg = SetWindowsHookEx(
-		WH_SYSMSGFILTER,
-		hkprcSysMsg,
-		hinstDLL,
-		0);
-	*/
-
-
+	if (hkprcSysMsg) {
+		// 【参数1】钩子的类型，这里代表键盘钩子
+		// 【参数2】钩子处理的函数
+		// 【参数3】获取模块,DLL的项目名称
+		// 【参数4】线程的ID，如果是全局钩子的话，这里要填0，如果是某个线程的钩子，那就需要写线程的ID
+		hhookSysMsg = SetWindowsHookExA(WH_KEYBOARD, hkprcSysMsg, hinstDLL, 0);
+	}
+	if (hhookSysMsg) {
+		return 1;
+	}
+	return 0;
 }
+
+//另一种方法
+DllExport int InstallHook_s() {
+	hhookSysMsg = SetWindowsHookExA(WH_KEYBOARD, hkprcSysMsg, hinstDLL, 0);
+	if (hhookSysMsg != NULL) {
+		return 1;
+	}
+	return 0;
+}
+
 
 DllExport int UninstallHook() {
-	if (! UnhookWindowsHookEx(global_keyboard_hook)) {
+	if (! UnhookWindowsHookEx(hhookSysMsg)) {
 		return 0;
 	}
 	return 1;
@@ -94,5 +86,25 @@ DllExport int UninstallHook() {
 
 static void KeyBoardHook_Main() {
 	system("chcp");
+
+	InstallHook();
+
+	/*
+	hinstDLL = LoadLibrary(TEXT("KBHook.dll"));
+	hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "InstallHook_s");
+	*/
+
+	//循环消息队列
+	MSG msg;
+	while (GetMessageA(&msg,hhookSysMsg,0,0) != 0) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	/*
+	while (GetMessageA(&msg,hkprcSysMsg,0,0) != 0)
+	*/
+
+	UninstallHook();
+
 }
 

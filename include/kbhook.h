@@ -12,5 +12,7 @@ DllExport int kbhook_run_success();
 DllExport int InstallHook();
 DllExport int UninstallHook();
 
+DllExport int InstallHook_s();
+
 #endif // !KBHOOK
 
