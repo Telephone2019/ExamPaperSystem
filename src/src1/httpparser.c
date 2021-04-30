@@ -29,26 +29,38 @@ static long long last_index_of_ch(const char* s, char ch, long long before_index
 	return last_index_of_str(s, substr, before_index);
 }
 
-static void bm_shift(size_t* p_head_index, size_t num, char *buf, char(*generator)(void*), void *generator_param_p) {
+// generator 可能调用失败。
+// 如果某次 generator 调用失败，那么此次 p_head_index 下标不会增加，此次 buf 也不会被写入，
+// 此次滑动取消（只是取消这一个字符距离的滑动，不是取消所有滑动），同时立即停止滑动。
+// 返回值：成功滑动的距离（字符为单位）
+static size_t bm_shift(size_t* p_head_index, size_t num, char *buf, char(*generator)(void*,int*), void *generator_param_p) {
 	if (generator)
 	{
 		for (size_t i = 0; i < num; i++)
 		{
-			buf[++(*p_head_index)] = generator(generator_param_p);
+			int continue_flag = 1;
+			char read_ch = generator(generator_param_p, &continue_flag);
+			if (!continue_flag)
+			{
+				return i;
+			}
+			buf[++(*p_head_index)] = read_ch;
 		}
 	}
 	else
 	{
 		(*p_head_index) += num;
 	}
+	return num;
 }
 
 // 此函数从头查找第一个符合的子字符串。有两种工作模式：流模式和固定字符串模式。
 // 返回值：
 // -1 ：没找到
 // -2 : 动态内存分配失败
-// >=0 : 流模式下代表字符生成器被调用的次数；固定字符串模式下代表找到的子字符串的最后一个字符的后一个下标（不管是否超出数组界限）
-int find_sub_str(size_t max_call_time, char(*generator)(void*), void* generator_param_p, const char *str, const char *pattern) {
+// -3 : 字符生成器调用失败。字符生成器调用成功的次数存储在参数 call_time 指向的变量中
+// >=0 : 找到了。没有错误发生。流模式下返回值是字符生成器被调用的次数；固定字符串模式下返回值是找到的子字符串的最后一个字符的后一个下标（不管是否超出数组界限）
+int find_sub_str(size_t max_call_time, char(*generator)(void*,int*), void* generator_param_p, const char *str, const char *pattern, size_t *call_time) {
 	const size_t plen = strlen(pattern);
 	size_t shifted = 0;
 	max_call_time = (str ? strlen(str) : max_call_time);
@@ -74,7 +86,13 @@ int find_sub_str(size_t max_call_time, char(*generator)(void*), void* generator_
 		if (!str)free(temp);
 		return -1;
 	}
-	bm_shift(&head_index, plen, temp, generator, generator_param_p);
+	size_t a_shift = bm_shift(&head_index, plen, temp, generator, generator_param_p);
+	if (a_shift < plen)
+	{
+		shifted -= plen; shifted += a_shift;
+		*call_time = shifted;
+		return -3;
+	}
 
 loop:;
 	size_t tail_index = head_index + 1 - plen;
@@ -108,7 +126,13 @@ loop:;
 				if (!str)free(temp);
 				return -1;
 			}
-			bm_shift(&head_index, shift_len, temp, generator, generator_param_p);
+			size_t a_shift = bm_shift(&head_index, shift_len, temp, generator, generator_param_p);
+			if (a_shift < shift_len)
+			{
+				shifted -= shift_len; shifted += a_shift;
+				*call_time = shifted;
+				return -3;
+			}
 			goto loop;
 		}
 	}
