@@ -152,6 +152,12 @@ long vlist_flush(vlist this, VLIST_FILTER_FUNC_TYPE* filter) {
     }
     return flushed;
 }
+void vlist_clear(vlist this) {
+    while (this->size > 0)
+    {
+        this->remove(this, 0);
+    }
+}
 
 vlist make_vlist(size_t node_size) {
     vlist res = malloc(sizeof(struct vlist));
@@ -177,11 +183,16 @@ vlist make_vlist(size_t node_size) {
     res->foreach = vlist_foreach;
     res->foreach_reverse = vlist_foreach_reverse;
     res->flush = vlist_flush;
+    res->clear = vlist_clear;
 
     return res;
 }
 
 void delete_vlist(vlist vlist_, vlist* vlist_ptr) {
+    if (vlist_ == NULL)
+    {
+        return;
+    }
     while (vlist_->size > 0)
     {
         vlist_->remove(vlist_, 0);

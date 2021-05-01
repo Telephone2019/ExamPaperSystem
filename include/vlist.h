@@ -27,6 +27,7 @@ typedef int VLIST_REMOVE_FUNC_TYPE(vlist this, long index);
 typedef void VLIST_FOREACH_FUNC_TYPE(vlist this, VLIST_RUNNABLE_FUNC_TYPE* run);
 typedef void VLIST_FOREACH_REVERSE_FUNC_TYPE(vlist this, VLIST_RUNNABLE_FUNC_TYPE* run);
 typedef long VLIST_FLUSH_FUNC_TYPE(vlist this, VLIST_FILTER_FUNC_TYPE* filter);
+typedef void VLIST_CLEAR_FUNC_TYPE(vlist this);
 
 struct vlist
 {
@@ -45,6 +46,7 @@ struct vlist
     VLIST_FOREACH_FUNC_TYPE* foreach;
     VLIST_FOREACH_REVERSE_FUNC_TYPE* foreach_reverse;
     VLIST_FLUSH_FUNC_TYPE* flush;
+    VLIST_CLEAR_FUNC_TYPE* clear;
 };
 
 vlist make_vlist(size_t node_size);
@@ -60,5 +62,6 @@ int vlist_remove(vlist this, long index);
 void vlist_foreach(vlist this, VLIST_RUNNABLE_FUNC_TYPE* run);
 void vlist_foreach_reverse(vlist this, VLIST_RUNNABLE_FUNC_TYPE* run);
 long vlist_flush(vlist this, VLIST_FILTER_FUNC_TYPE* filter);
+void vlist_clear(vlist this);
 
 #endif // VLIST
