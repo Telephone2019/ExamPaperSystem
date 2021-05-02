@@ -55,6 +55,7 @@ int find_sub_str(size_t max_call_time, GENERATOR_FUNCTION_TYPE* generator, GENER
 
 #ifdef CASE_INSENSITIVE_STRSTR
 // 从流中取出下一个 HTTP 报文，不合法的数据也会被从流中取出，但不合法的数据会被丢弃。提取出的报文以字符串的形式存放于 message_pp 指向的指针指向的一块内存中。
+// 如果提取成功了，必须在适当的时候释放 message_pp 指向的指针指向的内存，否则会造成内存泄漏。
 // 返回值：
 // >= 0 : HTTP 报文的长度（不包括结尾的空字符）
 // -1 : 参数不合法，method_p 是空指针或 message_pp 是空指针
