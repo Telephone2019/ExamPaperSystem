@@ -218,6 +218,11 @@ typedef struct generator_wrapper_param {
 	long next_read_buffer_index;
 } generator_wrapper_param;
 
+typedef struct char_node {
+	VLISTNODE
+		char ch;
+} char_node;
+
 static char generator_wrapper(void* generator_wrapper_param_p, int* continue_flag) {
 	generator_wrapper_param* gwpp = generator_wrapper_param_p;
 	GENERATOR_FUNCTION_TYPE* generator = gwpp->generator;
@@ -229,7 +234,7 @@ static char generator_wrapper(void* generator_wrapper_param_p, int* continue_fla
 		if (*continue_flag)
 		{
 			// 只有 generator 调用成功，才把 generator 的返回字符放入缓冲区
-			generated_buffer->add(generated_buffer, &read_ch);
+			generated_buffer->add(generated_buffer, &((char_node) {.ch = read_ch}));
 			gwpp->next_read_buffer_index = generated_buffer->size;
 		}
 		return read_ch;
@@ -237,7 +242,7 @@ static char generator_wrapper(void* generator_wrapper_param_p, int* continue_fla
 	else
 	{
 		*continue_flag = 1;
-		return *((const char*)(generated_buffer->get_const(generated_buffer, gwpp->next_read_buffer_index++)));
+		return ((const char_node*)(generated_buffer->get_const(generated_buffer, gwpp->next_read_buffer_index++)))->ch;
 	}
 }
 
@@ -249,7 +254,7 @@ int next_http_message(HttpMethod *method_p, char **message_pp, GENERATOR_FUNCTIO
 	const char *(http_method_names[]) = {
 		"GET", "POST", "HEAD", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"
 	};
-	vlist generated_buffer = make_vlist(sizeof(char));
+	vlist generated_buffer = make_vlist(sizeof(char_node));
 	generator_wrapper_param gwp = {
 		.generator = generator,
 		.generator_param_p = generator_param_p,
@@ -279,7 +284,7 @@ again:;
 				}
 				for (int m_i = m_start_index, dest_i = 0; m_i < m_end_index; m_i++, dest_i++)
 				{
-					(*message_pp)[dest_i] = *((const char*)(generated_buffer->get_const(generated_buffer, m_i)));
+					(*message_pp)[dest_i] = ((const char_node*)(generated_buffer->get_const(generated_buffer, m_i)))->ch;
 				}
 				delete_vlist(generated_buffer, &generated_buffer);
 				return m_len;

@@ -382,42 +382,21 @@ static char generator(void* params_p, int* continue_flag_p) {
 static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 	node* np = (*((params*)params_p)).node_p;
 	generator_params gp = { .np = np };
-	size_t read_num = 0;
-	char req[51] = { 0 };
-	int find_res = find_sub_str(50, generator, &gp, NULL, "abcdefg", &read_num, req, sizeof(req));
-	if (find_res >= 0)
+
+	while (1)
 	{
-		// found
-		LogMe.it("[ %p ] %s", np->socket, req);
-		const char* origin_name = "hello_world_你好——世界.jpg";
-		char encoded_name[500];
-		url_encode(origin_name, strlen(origin_name), encoded_name, sizeof(encoded_name), 0);
-		if (
-			send_file(
-				np,
-				"D:\\同步盘\\Pictures\\0 (手机).jpg",
-				0,
-				MIME_TYPE_JPEG,
-				NULL,
-				1,
-				encoded_name
-			) < 0
-			) {
-			LogMe.et("send_file() on socket [ %p ] failed", np->socket);
-			return error_shutdown(np, params_p, 6);
-		}
-		return active_shutdown(np, params_p, 0);
-	}
-	else if (find_res == -1)
-	{
-		// not found and no error
+		char* message = NULL;
+		HttpMethod method = INVALID_METHOD;
+		int nres = next_http_message(&method, &message, generator, &gp);
+		LogMe.et("[ HTTP Parse Len From Socket %p ] %d", np->socket, nres);
+		LogMe.it("[ HTTP Message From Socket %p ] %s", np->socket, message);
 		if (
 			send_text(
 				np,
-				404,
-				"Not Found",
-				0,
-				"<html>\n<body>\n<h1>File Not Found 文件找不到</h1>\n</body>\n</html>\n",
+				200,
+				"OK",
+				1,
+				"<html>\n<body>\n<h1>Great! 非常棒！</h1>\n</body>\n</html>\n",
 				MIME_TYPE_HTML,
 				HTTP_CHARSET_UTF8,
 				0,
@@ -427,30 +406,78 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 		{
 			return error_shutdown(np, params_p, 8);
 		}
-		return active_shutdown(np, params_p, 7);
+		free(message);
 	}
-	else if (find_res == -2)
-	{
-		// malloc fail
-		LogMe.et("malloc fail on socket [ %p ] when parsing HTTP request", np->socket);
-		return active_shutdown(np, params_p, 3);
-	}
-	else if (find_res == -3)
-	{
-		// generator fail
-		if (gp.recv_t_return_val == 0)
-		{
-			// recv 0
-			LogMe.bt("recv_0 on socket [ %p ] when parsing HTTP request", np->socket);
-			return recv_0_shutdown(np, params_p, 4);
-		}
-		else
-		{
-			// recv error
-			LogMe.et("recv_t() on socket [ %p ] failed when parsing HTTP request with error: %d", np->socket, WSAGetLastError());
-			return error_shutdown(np, params_p, 5);
-		}
-	}
+
+	//size_t read_num = 0;
+	//char req[51] = { 0 };
+	//int find_res = find_sub_str(50, generator, &gp, NULL, "abcdefg", &read_num, req, sizeof(req));
+	//if (find_res >= 0)
+	//{
+	//	// found
+	//	LogMe.it("[ %p ] %s", np->socket, req);
+	//	const char* origin_name = "hello_world_你好——世界.jpg";
+	//	char encoded_name[500];
+	//	url_encode(origin_name, strlen(origin_name), encoded_name, sizeof(encoded_name), 0);
+	//	if (
+	//		send_file(
+	//			np,
+	//			"D:\\同步盘\\Pictures\\0 (手机).jpg",
+	//			0,
+	//			MIME_TYPE_JPEG,
+	//			NULL,
+	//			1,
+	//			encoded_name
+	//		) < 0
+	//		) {
+	//		LogMe.et("send_file() on socket [ %p ] failed", np->socket);
+	//		return error_shutdown(np, params_p, 6);
+	//	}
+	//	return active_shutdown(np, params_p, 0);
+	//}
+	//else if (find_res == -1)
+	//{
+	//	// not found and no error
+	//	if (
+	//		send_text(
+	//			np,
+	//			404,
+	//			"Not Found",
+	//			0,
+	//			"<html>\n<body>\n<h1>File Not Found 文件找不到</h1>\n</body>\n</html>\n",
+	//			MIME_TYPE_HTML,
+	//			HTTP_CHARSET_UTF8,
+	//			0,
+	//			NULL
+	//		) != 0
+	//		)
+	//	{
+	//		return error_shutdown(np, params_p, 8);
+	//	}
+	//	return active_shutdown(np, params_p, 7);
+	//}
+	//else if (find_res == -2)
+	//{
+	//	// malloc fail
+	//	LogMe.et("malloc fail on socket [ %p ] when parsing HTTP request", np->socket);
+	//	return active_shutdown(np, params_p, 3);
+	//}
+	//else if (find_res == -3)
+	//{
+	//	// generator fail
+	//	if (gp.recv_t_return_val == 0)
+	//	{
+	//		// recv 0
+	//		LogMe.bt("recv_0 on socket [ %p ] when parsing HTTP request", np->socket);
+	//		return recv_0_shutdown(np, params_p, 4);
+	//	}
+	//	else
+	//	{
+	//		// recv error
+	//		LogMe.et("recv_t() on socket [ %p ] failed when parsing HTTP request with error: %d", np->socket, WSAGetLastError());
+	//		return error_shutdown(np, params_p, 5);
+	//	}
+	//}
 	return active_shutdown(np, params_p, -1); // 主动关闭连接
 }
 
