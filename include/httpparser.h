@@ -15,6 +15,18 @@
 #define CASE_INSENSITIVE_STRSTR_VUTILS
 #endif // LOGME_WINDOWS
 
+#ifdef LOGME_MSVC
+#define CASE_INSENSITIVE_STRCMP
+#define CASE_INSENSITIVE_STRCMP_MSVC
+#elif defined(LOGME_GCC)
+#define CASE_INSENSITIVE_STRCMP
+#define CASE_INSENSITIVE_STRCMP_GCC
+#else 
+#define CASE_INSENSITIVE_STRCMP
+#define CASE_INSENSITIVE_STRCMP_VUTILS
+#endif // LOGME_MSVC
+
+
 #define MAX_HTTP_HEADERS_LENGTH 28672
 
 typedef enum HttpMethod {
@@ -52,5 +64,29 @@ int find_sub_str(size_t max_call_time, GENERATOR_FUNCTION_TYPE* generator, GENER
 // 其他负数 : find_sub_str() 返回此错误码
 int next_http_message(HttpMethod* method_p, char** message_pp, GENERATOR_FUNCTION_TYPE* generator, GENERATOR_PARAM_TYPE* generator_param_p);
 #endif // CASE_INSENSITIVE_STRSTR
+
+#ifdef CASE_INSENSITIVE_STRCMP
+typedef struct HttpMessage {
+	int malloc_success;
+	int success;
+	char* error_name;
+	char* error_reason;
+	HttpMethod method;
+	char* msg;
+} HttpMessage;
+// 请调用此函数来获取一个已初始化的 HttpMessage 结构体
+HttpMessage makeHttpMessage();
+// 当 HttpMessage 结构体不再被使用，请调用此函数来释放 HttpMessage 结构体内的动态内存
+void freeHttpMessage(HttpMessage* httpmsg);
+// 传入HTTP报文字符串，此函数会解析HTTP报文得到一个 HttpMessage 结构体，然后将其返回。
+// 从此函数返回后，应该先检查返回的 HttpMessage 结构体中的 malloc_success 字段，如果此字段为 0，说明此结构体已损坏，
+// 请不要再使用此结构体并立即使用 freeHttpMessage() 释放此结构体。
+// 如果 HttpMessage 结构体未损坏，那么 success 字段代表解析成功与否（0失败，non-zero成功），如果解析失败，
+// 失败的信息和详细原因存储在 error_name 和 error_reason 指向的字符串中。
+// 不要更改返回的结构体中的任何指针字段（可以修改指针指向的变量的值，但不能修改指针本身），否则会造成内存泄露。
+// 当返回的 HttpMessage 结构体不再被使用，请调用 freeHttpMessage() 来释放它，否则会造成内存泄漏。
+HttpMessage parse_http_message(const char* message);
+#endif // CASE_INSENSITIVE_STRCMP
+
 
 #endif // !HTTPPARSER

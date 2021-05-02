@@ -16,6 +16,8 @@ add_library(HttpParser "httpparser.c")
 
 add_library(HttpUtils "httputils.c")
 
+add_library(llhttp "llhttp.c" "llhttp_api.c" "llhttp_http.c")
+
 # 仅适用于 windows 平台
 add_library(TCPServer "tcpserver.c")
 
@@ -32,13 +34,15 @@ target_include_directories(HttpParser PUBLIC ${MyInclude1})
 
 target_include_directories(HttpUtils PUBLIC ${MyInclude1})
 
+target_include_directories(llhttp PUBLIC ${MyInclude1})
+
 # 仅适用于 windows 平台
 target_include_directories(TCPServer PUBLIC ${MyInclude1})
 
 ######################################### 自定义库需要链接的其他库 #########################################
 
 # 一些自定义库需要链接别的库，PRIVATE 表明链接的库仅用于自定义库本身
-target_link_libraries(HttpParser PRIVATE VUtils VList)
+target_link_libraries(HttpParser PRIVATE VUtils VList llhttp)
 # 只有 windows 平台才有的链接库
 target_link_libraries(HttpParser PRIVATE Shlwapi)
 

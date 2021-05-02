@@ -169,6 +169,43 @@ char* vstrstr(const char* haystack, const char* needle, int case_sensitive, int 
 	return res;
 }
 
+int vstrcmp(const char* s1, const char* s2, int case_sensitive, int* success) {
+	char* s1m, * s2m;
+	if (!case_sensitive)
+	{
+		s1m = zero_malloc(strlen(s1) + 1);
+		s2m = zero_malloc(strlen(s2) + 1);
+		if (!s1m || !s2m)
+		{
+			*success = 0;
+			return -1;
+		}
+		memcpy(s1m, s1, strlen(s1));
+		memcpy(s2m, s2, strlen(s2));
+		for (int i = 0; i < strlen(s1m); i++)
+		{
+			s1m[i] = toupper(s1m[i]);
+		}
+		for (int i = 0; i < strlen(s2m); i++)
+		{
+			s2m[i] = toupper(s2m[i]);
+		}
+	}
+	else
+	{
+		s1m = s1;
+		s2m = s2;
+	}
+	*success = 1;
+	int res = strcmp(s1m, s2m);
+	if (!case_sensitive)
+	{
+		free(s1m); s1m = NULL;
+		free(s2m); s2m = NULL;
+	}
+	return res;
+}
+
 #ifdef LOGME_WINDOWS
 #include<windows.h>
 int test_wide_char_num_of_utf8_including_wide_null(const char* utf8str) {

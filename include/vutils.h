@@ -17,6 +17,8 @@ void url_encode(const char* utf8_byte_array, size_t encode_len, char* encoded_st
 
 char* vstrstr(const char* haystack, const char* needle, int case_sensitive, int* success);
 
+int vstrcmp(const char* s1, const char* s2, int case_sensitive, int* success);
+
 #ifdef LOGME_WINDOWS
 #include <uchar.h>
 int test_wide_char_num_of_utf8_including_wide_null(const char *utf8str);

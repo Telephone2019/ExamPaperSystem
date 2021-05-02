@@ -1,10 +1,17 @@
 #include "httpparser.h"
 
+#ifdef CASE_INSENSITIVE_STRSTR_GCC
+#define _GNU_SOURCE
+#endif // CASE_INSENSITIVE_STRSTR_GCC
+#ifdef CASE_INSENSITIVE_STRCMP_GCC
+#define _DEFAULT_SOURCE
+#endif // CASE_INSENSITIVE_STRCMP_GCC
+
+
 #ifdef CASE_INSENSITIVE_STRSTR_WINDOWS
 #include <Shlwapi.h>
 #include <string.h>
 #elif defined(CASE_INSENSITIVE_STRSTR_GCC)
-#define _GNU_SOURCE
 #include <string.h>
 #elif defined(CASE_INSENSITIVE_STRSTR_VUTILS)
 #include <vutils.h>
@@ -12,6 +19,17 @@
 #else
 #include <string.h>
 #endif // CASE_INSENSITIVE_STRSTR_WINDOWS
+
+#ifdef CASE_INSENSITIVE_STRCMP_MSVC
+#include <string.h>
+#elif defined(CASE_INSENSITIVE_STRCMP_GCC)
+#include <string.h>
+#elif defined(CASE_INSENSITIVE_STRCMP_VUTILS)
+#include <vutils.h>
+#include <string.h>
+#else
+#include <string.h>
+#endif // CASE_INSENSITIVE_STRCMP_MSVC
 
 #include <stddef.h>
 #include <string.h>
@@ -397,3 +415,66 @@ again:;
 	while (1);
 }
 #endif // CASE_INSENSITIVE_STRSTR
+
+#ifdef CASE_INSENSITIVE_STRCMP
+#include <llhttp.h>
+HttpMessage makeHttpMessage() {
+	return (HttpMessage) {
+		.malloc_success = 1, // malloc_success default TRUE
+			.success = 1,
+			.error_name = NULL,
+			.error_reason = NULL,
+			.method = INVALID_METHOD,
+			.msg = NULL
+	};
+}
+void freeHttpMessage(HttpMessage* httpmsg) {
+	if (httpmsg == NULL)
+	{
+		return;
+	}
+	free(httpmsg->error_name); httpmsg->error_name = NULL;
+	free(httpmsg->error_reason); httpmsg->error_reason = NULL;
+	free(httpmsg->msg); httpmsg->msg = NULL;
+}
+HttpMessage parse_http_message(const char* message) {
+	llhttp_t parser;
+	llhttp_settings_t settings;
+	/* Initialize user callbacks and settings */
+	llhttp_settings_init(&settings);
+	/* Set user callback */
+	settings.on_message_complete = NULL;
+	/* Initialize the parser in HTTP_BOTH mode, meaning that it will select between
+	 * HTTP_REQUEST and HTTP_RESPONSE parsing automatically while reading the first
+	 * input.
+	 */
+	llhttp_init(&parser, HTTP_BOTH, &settings);
+	/* Set user data */
+	HttpMessage httpmsg = makeHttpMessage();
+	parser.data = &httpmsg;
+	/* Parse request! */
+	enum llhttp_errno err = llhttp_execute(&parser, message, strlen(message));
+	if (err == HPE_OK) {
+		// success
+		httpmsg.success = 1;
+		httpmsg.error_name = httpmsg.error_reason = NULL;
+	}
+	else {
+		// fail
+		httpmsg.success = 0;
+		const char* error_name = llhttp_errno_name(err);
+		const char* error_reason = parser.reason;
+		httpmsg.error_name = zero_malloc(strlen(error_name) + 1);
+		httpmsg.error_reason = zero_malloc(strlen(error_reason) + 1);
+		if (!(httpmsg.error_name) || !(httpmsg.error_reason))
+		{
+			// malloc fail
+			httpmsg.malloc_success = 0;
+			return httpmsg;
+		}
+		memcpy(httpmsg.error_name, error_name, strlen(error_name));
+		memcpy(httpmsg.error_reason, error_reason, strlen(error_reason));
+	}
+	return httpmsg;
+}
+#endif // CASE_INSENSITIVE_STRCMP
