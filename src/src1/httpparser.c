@@ -6,6 +6,9 @@
 #elif defined(CASE_INSENSITIVE_STRSTR_GCC)
 #define _GNU_SOURCE
 #include <string.h>
+#elif defined(CASE_INSENSITIVE_STRSTR_VUTILS)
+#include <vutils.h>
+#include <string.h>
 #else
 #include <string.h>
 #endif // CASE_INSENSITIVE_STRSTR_WINDOWS
@@ -22,6 +25,11 @@ static long long last_index_of_str(const char* s, const char* pattern, long long
 
 #ifdef CASE_INSENSITIVE_STRSTR
 	, int case_sensitive
+
+#ifdef CASE_INSENSITIVE_STRSTR_VUTILS
+	, int *success
+#endif // CASE_INSENSITIVE_STRSTR_VUTILS
+
 #endif // CASE_INSENSITIVE_STRSTR
 
 ) {
@@ -43,11 +51,20 @@ static long long last_index_of_str(const char* s, const char* pattern, long long
 			StrStrI(pt++, pattern)
 #elif defined(CASE_INSENSITIVE_STRSTR_GCC)
 			strcasestr(pt++, pattern)
+#elif defined(CASE_INSENSITIVE_STRSTR_VUTILS)
+		vstrstr(pt++, pattern, case_sensitive, success)
 #else
 			strstr(pt++, pattern)
 #endif // CASE_INSENSITIVE_STRSTR_WINDOWS
 #endif // CASE_INSENSITIVE_STRSTR
 			;
+#if defined(CASE_INSENSITIVE_STRSTR) && defined(CASE_INSENSITIVE_STRSTR_VUTILS)
+			if (!(*success))
+			{
+				return -1;
+			}
+#endif // defined(CASE_INSENSITIVE_STRSTR) && defined(CASE_INSENSITIVE_STRSTR_VUTILS)
+
 		if (!next_found || next_found >= before_ptr)
 		{
 			break;
@@ -61,12 +78,21 @@ static long long last_index_of_ch(const char* s, char ch, long long before_index
 
 #ifdef CASE_INSENSITIVE_STRSTR
 	, int case_sensitive
+
+#ifdef CASE_INSENSITIVE_STRSTR_VUTILS
+	, int* success
+#endif // CASE_INSENSITIVE_STRSTR_VUTILS
+
 #endif // CASE_INSENSITIVE_STRSTR
 
 ) {
 	char substr[2] = {ch, 0};
 #ifdef CASE_INSENSITIVE_STRSTR
-	return last_index_of_str(s, substr, before_index, case_sensitive);
+	return last_index_of_str(s, substr, before_index, case_sensitive
+#ifdef CASE_INSENSITIVE_STRSTR_VUTILS
+		, success
+#endif // CASE_INSENSITIVE_STRSTR_VUTILS
+	);
 #else
 	return last_index_of_str(s, substr, before_index);
 #endif // CASE_INSENSITIVE_STRSTR
@@ -168,11 +194,20 @@ loop:;
 		}
 		else
 		{
+			int success = 1;
 			long long left_index_of_tch_in_pattern = last_index_of_ch(pattern, tch, pattern_index
 #ifdef CASE_INSENSITIVE_STRSTR
 				, case_sensitive
+#ifdef CASE_INSENSITIVE_STRSTR_VUTILS
+				, &success
+#endif // CASE_INSENSITIVE_STRSTR_VUTILS
 #endif // CASE_INSENSITIVE_STRSTR
 			);
+			if (!success)
+			{
+				if (!str)free(temp); *call_time = shifted;
+				return -2;
+			}
 			size_t shift_len = ((long long)pattern_index) - left_index_of_tch_in_pattern;
 			if (look_back_index != head_index)
 			{
@@ -181,8 +216,16 @@ loop:;
 				long long left_index_of_hch_in_pattern = last_index_of_ch(pattern, hch, pattern_index_2
 #ifdef CASE_INSENSITIVE_STRSTR
 					, case_sensitive
+#ifdef CASE_INSENSITIVE_STRSTR_VUTILS
+					, &success
+#endif // CASE_INSENSITIVE_STRSTR_VUTILS
 #endif // CASE_INSENSITIVE_STRSTR
 				);
+				if (!success)
+				{
+					if (!str)free(temp); *call_time = shifted;
+					return -2;
+				}
 				size_t shift_len_2 = ((long long)pattern_index_2) - left_index_of_hch_in_pattern;
 				if (shift_len_2 > shift_len)
 				{
