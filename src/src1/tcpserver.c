@@ -27,6 +27,14 @@
 
 #define HTTP_CHARSET_UTF8 "utf-8"
 
+#define HTML_200 "<html>\n<body>\n<h1>Great! 非常棒！</h1>\n</body>\n</html>\n"
+#define HTML_404 "<html>\n<body>\n<h1>File Not Found 文件找不到</h1>\n</body>\n</html>\n"
+#define HTML_500 "<html>\n<body>\n<h1>Internal Server Error 发生了错误</h1>\n</body>\n</html>\n"
+
+#define REASON_PHRASE_200 "OK"
+#define REASON_PHRASE_404 "Not Found"
+#define REASON_PHRASE_500 "Internal Server Error"
+
 static int init_winsock() {
 	WSADATA wsaData;
 
@@ -199,10 +207,25 @@ static int error_shutdown(node* cnt_p, params* params_p, int returned) {
 }
 
 // 此函数会将 node 结构体中的 socket 设置为阻塞模式，并设置读取超时时间为 node 结构体中的相应字段，然后调用 recv() 并返回 recv() 的返回值
+// 此函数的日志输出是完备的
 static int recv_t(node *np, char *buf, int len, int flags) {
 	ioctlsocket(np->socket, FIONBIO, &((u_long) {0})); // 0:blocking 1:non-blocking
 	setsockopt(np->socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&((DWORD) { ((DWORD)(np->recv_timeout_s))*1000 }), sizeof(DWORD));
-	return recv(np->socket, buf, len, flags);
+	int r_res = recv(np->socket, buf, len, flags);
+	if (r_res > 0)
+	{
+		// 通常会以极小的 len 调用此函数，因此为了避免打印太多的冗余日志，暂不打印成功消息
+		//LogMe.it("call recv() on socket [ %p ] with len=%d and return=%d", np->socket, len, r_res);
+	}
+	else if (r_res == 0)
+	{
+		LogMe.bt("call recv() on socket [ %p ] and recv 0", np->socket);
+	}
+	else if (r_res == SOCKET_ERROR)
+	{
+		LogMe.et("call recv() on socket [ %p ] with len=%d and return=SOCKET_ERROR <WSAGetLastError()=%d>", np->socket, len, WSAGetLastError());
+	}
+	return r_res;
 }
 
 // 此函数会将 node 结构体中的 socket 设置为阻塞模式，并设置发送超时时间为 node 结构体中的相应字段，然后调用 send() 并返回 send() 的返回值
@@ -313,9 +336,9 @@ static int send_file(node* np, const char* filename, int keep_alive, const char 
 		return send_text(
 			np,
 			404,
-			"Not Found",
+			REASON_PHRASE_404,
 			keep_alive,
-			"<html>\n<body>\n<h1>File Not Found 文件找不到</h1>\n</body>\n</html>\n",
+			HTML_404,
 			MIME_TYPE_HTML,
 			HTTP_CHARSET_UTF8,
 			0, NULL
@@ -328,9 +351,9 @@ static int send_file(node* np, const char* filename, int keep_alive, const char 
 			return send_text(
 				np,
 				500,
-				"Internal Server Error",
+				REASON_PHRASE_500,
 				keep_alive,
-				"<html>\n<body>\n<h1>Internal Server Error 发生了错误</h1>\n</body>\n</html>\n",
+				HTML_500,
 				MIME_TYPE_HTML,
 				HTTP_CHARSET_UTF8,
 				0, NULL
@@ -341,7 +364,7 @@ static int send_file(node* np, const char* filename, int keep_alive, const char 
 				resp,
 				sizeof(resp),
 				200,
-				"OK",
+				REASON_PHRASE_200,
 				keep_alive,
 				NULL,
 				fSize.QuadPart,
@@ -388,25 +411,64 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 		char* message = NULL;
 		HttpMethod method = INVALID_METHOD;
 		int nres = next_http_message(&method, &message, generator, &gp);
-		LogMe.et("[ HTTP Parse Len From Socket %p ] %d", np->socket, nres);
-		LogMe.it("[ HTTP Message From Socket %p ] %s", np->socket, message);
-		if (
-			send_text(
-				np,
-				200,
-				"OK",
-				1,
-				"<html>\n<body>\n<h1>Great! 非常棒！</h1>\n</body>\n</html>\n",
-				MIME_TYPE_HTML,
-				HTTP_CHARSET_UTF8,
-				0,
-				NULL
-			) != 0
-			)
+		LogMe.et("[ HTTP next_http_message() Res From Socket %p ] %d", np->socket, nres);
+		if (nres >= 0)
 		{
-			return error_shutdown(np, params_p, 8);
+			LogMe.it("[ HTTP Message From Socket %p ] %s", np->socket, message);
+			if (
+				send_text(
+					np,
+					200,
+					REASON_PHRASE_200,
+					1,
+					HTML_200,
+					MIME_TYPE_HTML,
+					HTTP_CHARSET_UTF8,
+					0,
+					NULL
+				) != 0
+				)
+			{
+				free(message); message = NULL;
+				return error_shutdown(np, params_p, 8);
+			}
 		}
-		free(message);
+		else if (nres == -1)
+		{
+			if (
+				send_text(
+					np,
+					500,
+					REASON_PHRASE_500,
+					1,
+					HTML_500,
+					MIME_TYPE_HTML,
+					HTTP_CHARSET_UTF8,
+					0,
+					NULL
+				) != 0
+				)
+			{
+				return error_shutdown(np, params_p, 9);
+			}
+		}
+		else if (nres == -2)
+		{
+			return error_shutdown(np, params_p, 10);
+		}
+		else if (nres == -3)
+		{
+			return error_shutdown(np, params_p, 11);
+		}
+		else if (nres == -4)
+		{
+			return error_shutdown(np, params_p, 12);
+		}
+		else
+		{
+			return error_shutdown(np, params_p, 13);
+		}
+		free(message); message = NULL;
 	}
 
 	//size_t read_num = 0;
@@ -442,7 +504,7 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 	//		send_text(
 	//			np,
 	//			404,
-	//			"Not Found",
+	//			,
 	//			0,
 	//			"<html>\n<body>\n<h1>File Not Found 文件找不到</h1>\n</body>\n</html>\n",
 	//			MIME_TYPE_HTML,
