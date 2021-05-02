@@ -15,6 +15,8 @@ int is_uri_unreserved_character(char ch);
 
 void url_encode(const char* utf8_byte_array, size_t encode_len, char* encoded_str_buf, size_t buf_len, int is_bin);
 
+char* vstrstr(const char* haystack, const char* needle, int case_sensitive, int* success);
+
 #ifdef LOGME_WINDOWS
 #include <uchar.h>
 int test_wide_char_num_of_utf8_including_wide_null(const char *utf8str);

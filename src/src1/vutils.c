@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <macros.h>
 
@@ -128,6 +129,44 @@ void url_encode(const char* utf8_byte_array, size_t encode_len, char* encoded_st
 	{
 		*encoded_str_buf = '\0';
 	}
+}
+
+char* vstrstr(const char* haystack, const char* needle, int case_sensitive, int *success) {
+	char *haystack_m, *needle_m;
+	if (!case_sensitive)
+	{
+		haystack_m = zero_malloc(strlen(haystack) + 1);
+		needle_m = zero_malloc(strlen(needle) + 1);
+		if (!haystack_m || !needle_m)
+		{
+			*success = 0;
+			return NULL;
+		}
+		memcpy(haystack_m, haystack, strlen(haystack));
+		memcpy(needle_m, needle, strlen(needle));
+		for (int i = 0; i < strlen(haystack_m); i++)
+		{
+			haystack_m[i] = toupper(haystack_m[i]);
+		}
+		for (int i = 0; i < strlen(needle_m); i++)
+		{
+			needle_m[i] = toupper(needle_m[i]);
+		}
+	}
+	else
+	{
+		haystack_m = haystack;
+		needle_m = needle;
+	}
+	*success = 1;
+	char* temp = strstr(haystack_m, needle_m);
+	char* res = temp ? haystack + (temp - haystack_m) : temp;
+	if (!case_sensitive)
+	{
+		free(haystack_m); haystack_m = NULL;
+		free(needle_m); needle_m = NULL;
+	}
+	return res;
 }
 
 #ifdef LOGME_WINDOWS
