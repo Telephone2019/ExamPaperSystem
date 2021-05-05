@@ -28,10 +28,12 @@
 #define HTTP_CHARSET_UTF8 "utf-8"
 
 #define HTML_200 "<html>\n<body>\n<h1>Great! 非常棒！</h1>\n</body>\n</html>\n"
+#define HTML_400 "<html>\n<body>\n<h1>Bad Request 这是一个糟糕的请求</h1>\n</body>\n</html>\n"
 #define HTML_404 "<html>\n<body>\n<h1>File Not Found 文件找不到</h1>\n</body>\n</html>\n"
-#define HTML_500 "<html>\n<body>\n<h1>Internal Server Error 发生了错误</h1>\n</body>\n</html>\n"
+#define HTML_500 "<html>\n<body>\n<h1>Internal Server Error 服务器内部发生了错误</h1>\n</body>\n</html>\n"
 
 #define REASON_PHRASE_200 "OK"
+#define REASON_PHRASE_400 "Bad Request"
 #define REASON_PHRASE_404 "Not Found"
 #define REASON_PHRASE_500 "Internal Server Error"
 
@@ -402,6 +404,12 @@ static char generator(void* params_p, int* continue_flag_p) {
 	return buf[0];
 }
 
+static int printHttpHeader(vlist this, long i) {
+	const HttpHeader* header = this->get_const(this, i);
+	LogMe.n("%s: %s", header->field, header->value);
+	return 0; // go on
+}
+
 static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 	node* np = (*((params*)params_p)).node_p;
 	generator_params gp = { .np = np };
@@ -415,22 +423,79 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 		if (nres >= 0)
 		{
 			LogMe.it("[ HTTP Message From Socket %p ] %s", np->socket, message);
-			if (
-				send_text(
-					np,
-					200,
-					REASON_PHRASE_200,
-					1,
-					HTML_200,
-					MIME_TYPE_HTML,
-					HTTP_CHARSET_UTF8,
-					0,
-					NULL
-				) != 0
-				)
+			HttpMessage hmsg = parse_http_message(message);
+			if (!(hmsg.malloc_success))
 			{
-				free(message); message = NULL;
-				return error_shutdown(np, params_p, 8);
+				LogMe.et("[ Parsed HTTP Message From Socket %p ] <Malloc Fail>", np->socket);
+				freeHttpMessage(&hmsg);
+				// response 500 then go on
+				if (
+					send_text(
+						np,
+						500,
+						REASON_PHRASE_500,
+						1,
+						HTML_500,
+						MIME_TYPE_HTML,
+						HTTP_CHARSET_UTF8,
+						0,
+						NULL
+					) != 0
+					)
+				{
+					free(message); message = NULL;
+					return error_shutdown(np, params_p, 6);
+				}
+			}
+			else
+			{
+				if (!(hmsg.success))
+				{
+					LogMe.et("[ Parsed HTTP Message From Socket %p ] <Parse Fail> <%s><%s>", np->socket, hmsg.error_name, hmsg.error_reason);
+					freeHttpMessage(&hmsg);
+					// response 400 then go on
+					if (
+						send_text(
+							np,
+							400,
+							REASON_PHRASE_400,
+							1,
+							HTML_400,
+							MIME_TYPE_HTML,
+							HTTP_CHARSET_UTF8,
+							0,
+							NULL
+						) != 0
+						)
+					{
+						free(message); message = NULL;
+						return error_shutdown(np, params_p, 7);
+					}
+				}
+				else
+				{
+					LogMe.bt("[ Parsed HTTP Message From Socket %p ] HTTP/%d.%d %s %s", np->socket, hmsg.http_major, hmsg.http_minor, hmsg.url, getConstHttpMethodNameStr(hmsg.method));
+					hmsg.http_headers->foreach(hmsg.http_headers, printHttpHeader);
+					freeHttpMessage(&hmsg);
+					// response 200 then go on
+					if (
+						send_text(
+							np,
+							200,
+							REASON_PHRASE_200,
+							1,
+							HTML_200,
+							MIME_TYPE_HTML,
+							HTTP_CHARSET_UTF8,
+							0,
+							NULL
+						) != 0
+						)
+					{
+						free(message); message = NULL;
+						return error_shutdown(np, params_p, 8);
+					}
+				}
 			}
 		}
 		else if (nres == -1)

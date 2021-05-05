@@ -26,12 +26,15 @@
 #define CASE_INSENSITIVE_STRCMP_VUTILS
 #endif // LOGME_MSVC
 
+#include <vlist.h>
 
 #define MAX_HTTP_HEADERS_LENGTH 28672
 
 typedef enum HttpMethod {
 	GET = 0, POST, HEAD, PUT, DELETE_, CONNECT, OPTIONS, TRACE, PATCH, INVALID_METHOD
 } HttpMethod;
+HttpMethod httpMethodFromStr(const char *method_name);
+const char* getConstHttpMethodNameStr(HttpMethod http_method);
 
 typedef char(GENERATOR_FUNCTION_TYPE)(void*, int*);
 
@@ -67,13 +70,26 @@ int next_http_message(HttpMethod* method_p, char** message_pp, GENERATOR_FUNCTIO
 #endif // CASE_INSENSITIVE_STRSTR
 
 #ifdef CASE_INSENSITIVE_STRCMP
+typedef struct HttpHeader {
+	VLISTNODE
+	char* field;
+	char* value;
+} HttpHeader, KeyValuePair;
+void freeHttpHeader(HttpHeader* hh);
+#define freeKeyValuePair(x) freeHttpHeader(x);
 typedef struct HttpMessage {
 	int malloc_success;
 	int success;
 	char* error_name;
 	char* error_reason;
 	HttpMethod method;
-	char* msg;
+	int http_major;
+	int http_minor;
+	char* url;
+	char* path;
+	vlist query_string;
+	vlist url_fragment;
+	vlist http_headers;
 } HttpMessage;
 // 请调用此函数来获取一个已初始化的 HttpMessage 结构体
 HttpMessage makeHttpMessage();

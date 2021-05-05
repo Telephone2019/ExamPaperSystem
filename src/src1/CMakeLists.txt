@@ -42,7 +42,8 @@ target_include_directories(TCPServer PUBLIC ${MyInclude1})
 ######################################### 自定义库需要链接的其他库 #########################################
 
 # 一些自定义库需要链接别的库，PRIVATE 表明链接的库仅用于自定义库本身
-target_link_libraries(HttpParser PRIVATE VUtils VList llhttp)
+target_link_libraries(HttpParser PRIVATE VUtils llhttp)
+target_link_libraries(HttpParser PUBLIC VList)
 # 只有 windows 平台才有的链接库
 target_link_libraries(HttpParser PRIVATE Shlwapi)
 

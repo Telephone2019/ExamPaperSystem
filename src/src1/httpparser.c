@@ -271,6 +271,56 @@ loop:;
 	return shifted;
 }
 
+HttpMethod httpMethodFromStr(const char* method_name) {
+	if (!strcmp(method_name, "GET"))
+	{
+		return GET;
+	}
+	else if (!strcmp(method_name, "POST"))
+	{
+		return POST;
+	}
+	else if (!strcmp(method_name, "HEAD"))
+	{
+		return HEAD;
+	}
+	else if (!strcmp(method_name, "PUT"))
+	{
+		return PUT;
+	}
+	else if (!strcmp(method_name, "DELETE"))
+	{
+		return DELETE_;
+	}
+	else if (!strcmp(method_name, "CONNECT"))
+	{
+		return CONNECT;
+	}
+	else if (!strcmp(method_name, "OPTIONS"))
+	{
+		return OPTIONS;
+	}
+	else if (!strcmp(method_name, "TRACE"))
+	{
+		return TRACE;
+	}
+	else if (!strcmp(method_name, "PATCH"))
+	{
+		return PATCH;
+	}
+	else
+	{
+		return INVALID_METHOD;
+	}
+}
+
+const char* getConstHttpMethodNameStr(HttpMethod http_method) {
+	const char* (http_method_names[]) = {
+		"GET", "POST", "HEAD", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH", "INVALID_METHOD"
+	};
+	return http_method_names[http_method];
+}
+
 #ifdef CASE_INSENSITIVE_STRSTR
 typedef struct generator_wrapper_param {
 	GENERATOR_FUNCTION_TYPE* generator;
@@ -312,9 +362,6 @@ int next_http_message(HttpMethod *method_p, char **message_pp, GENERATOR_FUNCTIO
 	{
 		return -1;
 	}
-	const char *(http_method_names[]) = {
-		"GET", "POST", "HEAD", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"
-	};
 	vlist generated_buffer = make_vlist(sizeof(char_node));
 	generator_wrapper_param gwp = {
 		.generator = generator,
@@ -327,14 +374,16 @@ again:;
 	*method_p = INVALID_METHOD;
 	for (HttpMethod i = GET; i < INVALID_METHOD; i++)
 	{
-		int method_f_res = find_sub_str(MAX_HTTP_HEADERS_LENGTH, generator_wrapper, &gwp, NULL, http_method_names[i], NULL, NULL, 0, 0);
+		const char* method_name_const_str = getConstHttpMethodNameStr(i);
+		int method_name_strlen = strlen(method_name_const_str);
+		int method_f_res = find_sub_str(method_name_strlen, generator_wrapper, &gwp, NULL, method_name_const_str, NULL, NULL, 0, 0);
 		if (method_f_res >= 0)
 		{
 			*method_p = i;
 			int empty_line_f_res = find_sub_str(MAX_HTTP_HEADERS_LENGTH, generator_wrapper, &gwp, NULL, "\r\n\r\n", NULL, NULL, 0, 0);
 			if (empty_line_f_res >= 0)
 			{
-				int m_start_index = method_f_res - strlen(http_method_names[i]);
+				int m_start_index = method_f_res - method_name_strlen;
 				int m_end_index = method_f_res + empty_line_f_res;
 				int m_len = m_end_index - m_start_index;
 				*message_pp = zero_malloc(m_len + 1);
@@ -418,6 +467,14 @@ again:;
 
 #ifdef CASE_INSENSITIVE_STRCMP
 #include <llhttp.h>
+void freeHttpHeader(HttpHeader* hh) {
+	if (hh == NULL)
+	{
+		return;
+	}
+	free(hh->field); hh->field = NULL;
+	free(hh->value); hh->value = NULL;
+}
 HttpMessage makeHttpMessage() {
 	return (HttpMessage) {
 		.malloc_success = 1, // malloc_success default TRUE
@@ -425,8 +482,18 @@ HttpMessage makeHttpMessage() {
 			.error_name = NULL,
 			.error_reason = NULL,
 			.method = INVALID_METHOD,
-			.msg = NULL
+			.http_major = 0,
+			.http_minor = 0,
+			.url = NULL,
+			.path = NULL,
+			.query_string = NULL,
+			.url_fragment = NULL,
+			.http_headers = NULL
 	};
+}
+static int freeNode(vlist this, long i) {
+	freeHttpHeader(this->get(this, i));
+	return 0; // go on
 }
 void freeHttpMessage(HttpMessage* httpmsg) {
 	if (httpmsg == NULL)
@@ -435,7 +502,89 @@ void freeHttpMessage(HttpMessage* httpmsg) {
 	}
 	free(httpmsg->error_name); httpmsg->error_name = NULL;
 	free(httpmsg->error_reason); httpmsg->error_reason = NULL;
-	free(httpmsg->msg); httpmsg->msg = NULL;
+	free(httpmsg->url); httpmsg->url = NULL;
+	free(httpmsg->path); httpmsg->path = NULL;
+	if (httpmsg->query_string != NULL)
+	{
+		httpmsg->query_string->foreach(httpmsg->query_string, freeNode);
+		delete_vlist(httpmsg->query_string, &(httpmsg->query_string));
+	}
+	if (httpmsg->url_fragment != NULL)
+	{
+		httpmsg->url_fragment->foreach(httpmsg->url_fragment, freeNode);
+		delete_vlist(httpmsg->url_fragment, &(httpmsg->url_fragment));
+	}
+	if (httpmsg->http_headers != NULL)
+	{
+		httpmsg->http_headers->foreach(httpmsg->http_headers, freeNode);
+		delete_vlist(httpmsg->http_headers, &(httpmsg->http_headers));
+	}
+}
+static int url_cb(llhttp_t* parser, const char* at, size_t length) {
+	HttpMessage* message = (HttpMessage*)parser->data;
+	message->method = httpMethodFromStr(llhttp_method_name(parser->method));
+	message->url = zero_malloc(length + 1);
+	if (!(message->url))
+	{
+		message->malloc_success = 0;
+		return -1;
+	}
+	memcpy(message->url, at, length);
+	return 0;
+}
+static int url_complete_cb(llhttp_t* parser) {
+	return 0;
+}
+static int headers_complete_cb(llhttp_t* parser) {
+	HttpMessage* message = (HttpMessage*)parser->data;
+	message->http_major = parser->http_major;
+	message->http_minor = parser->http_minor;
+	return 1; // no body
+}
+static int on_header_field(llhttp_t* parser, const char* at, size_t length) {
+	HttpMessage* message = (HttpMessage*)parser->data;
+	if (message->http_headers == NULL)
+	{
+		message->http_headers = make_vlist(sizeof(HttpHeader));
+	}
+	if (message->http_headers == NULL)
+	{
+		message->malloc_success = 0;
+		return -1;
+	}
+	HttpHeader* h = zero_malloc(sizeof(HttpHeader));
+	if (h == NULL)
+	{
+		message->malloc_success = 0;
+		return -1;
+	}
+	h->field = zero_malloc(length + 1);
+	if (h->field == NULL)
+	{
+		free(h); h = NULL;
+		message->malloc_success = 0;
+		return -1;
+	}
+	memcpy(h->field, at, length);
+	message->http_headers->quick_add(message->http_headers, h);
+	return 0;
+}
+
+static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
+	HttpMessage* message = (HttpMessage*)parser->data;
+	if (message->http_headers == NULL || message->http_headers->size <= 0)
+	{
+		message->malloc_success = 0;
+		return -1;
+	}
+	char* v = zero_malloc(length + 1);
+	if (v == NULL) {
+		message->malloc_success = 0;
+		return -1;
+	}
+	memcpy(v, at, length);
+	((HttpHeader*)(message->http_headers->get(message->http_headers, message->http_headers->size - 1)))->value = v;
+	return 0;
 }
 HttpMessage parse_http_message(const char* message) {
 	llhttp_t parser;
@@ -443,7 +592,11 @@ HttpMessage parse_http_message(const char* message) {
 	/* Initialize user callbacks and settings */
 	llhttp_settings_init(&settings);
 	/* Set user callback */
-	settings.on_message_complete = NULL;
+	settings.on_url = url_cb;
+	settings.on_url_complete = url_complete_cb;
+	settings.on_headers_complete = headers_complete_cb;
+	settings.on_header_field = on_header_field;
+	settings.on_header_value = on_header_value;
 	/* Initialize the parser in HTTP_BOTH mode, meaning that it will select between
 	 * HTTP_REQUEST and HTTP_RESPONSE parsing automatically while reading the first
 	 * input.
