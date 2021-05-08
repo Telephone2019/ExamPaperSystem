@@ -491,7 +491,7 @@ HttpMessage makeHttpMessage() {
 			.http_headers = NULL
 	};
 }
-static int freeNode(vlist this, long i) {
+static int freeNode(vlist this, long i, void* extra) {
 	freeHttpHeader(this->get(this, i));
 	return 0; // go on
 }
@@ -506,17 +506,17 @@ void freeHttpMessage(HttpMessage* httpmsg) {
 	free(httpmsg->path); httpmsg->path = NULL;
 	if (httpmsg->query_string != NULL)
 	{
-		httpmsg->query_string->foreach(httpmsg->query_string, freeNode);
+		httpmsg->query_string->foreach(httpmsg->query_string, freeNode, NULL);
 		delete_vlist(httpmsg->query_string, &(httpmsg->query_string));
 	}
 	if (httpmsg->url_fragment != NULL)
 	{
-		httpmsg->url_fragment->foreach(httpmsg->url_fragment, freeNode);
+		httpmsg->url_fragment->foreach(httpmsg->url_fragment, freeNode, NULL);
 		delete_vlist(httpmsg->url_fragment, &(httpmsg->url_fragment));
 	}
 	if (httpmsg->http_headers != NULL)
 	{
-		httpmsg->http_headers->foreach(httpmsg->http_headers, freeNode);
+		httpmsg->http_headers->foreach(httpmsg->http_headers, freeNode, NULL);
 		delete_vlist(httpmsg->http_headers, &(httpmsg->http_headers));
 	}
 }

@@ -70,7 +70,7 @@ static vlist connections_list = NULL;
 static int has_open;
 
 // return non-zero to break
-static int check_cth(vlist this, long i) {
+static int check_cth(vlist this, long i, void* extra) {
 	has_open += ((node*)(this->get_const(this, i)))->open;
 	return 0;
 }
@@ -79,7 +79,7 @@ static int all_closed(){
 	has_open = 0;
 	if (connections_list != NULL)
 	{
-		connections_list->foreach(connections_list, check_cth);
+		connections_list->foreach(connections_list, check_cth, NULL);
 	}
 	return !has_open;
 }
@@ -404,7 +404,7 @@ static char generator(void* params_p, int* continue_flag_p) {
 	return buf[0];
 }
 
-static int printHttpHeader(vlist this, long i) {
+static int printHttpHeader(vlist this, long i, void* extra) {
 	const HttpHeader* header = this->get_const(this, i);
 	LogMe.n("%s: %s", header->field, header->value);
 	return 0; // go on
@@ -475,7 +475,7 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 				else
 				{
 					LogMe.bt("[ Parsed HTTP Message From Socket %p ] HTTP/%d.%d %s %s", np->socket, hmsg.http_major, hmsg.http_minor, hmsg.url, getConstHttpMethodNameStr(hmsg.method));
-					hmsg.http_headers->foreach(hmsg.http_headers, printHttpHeader);
+					hmsg.http_headers->foreach(hmsg.http_headers, printHttpHeader, NULL);
 					freeHttpMessage(&hmsg);
 					// response 200 then go on
 					if (
@@ -609,7 +609,7 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 }
 
 // return zero to remove current node from vlist
-static int closed_cnt_filter(vlist this, long i) {
+static int closed_cnt_filter(vlist this, long i, void* extra) {
 	return ((node*)(this->get_const(this, i)))->open;
 }
 
@@ -792,7 +792,7 @@ void tcp_server_run(int port, int memmory_lack) {
 
 		if (connections_list->size > max_cnt_list_size)
 		{
-			LogMe.et("Removed %ld closed connections from connections_list", connections_list->flush(connections_list, closed_cnt_filter));
+			LogMe.et("Removed %ld closed connections from connections_list", connections_list->flush(connections_list, closed_cnt_filter, NULL));
 		}
 
 		/* Debug Code */

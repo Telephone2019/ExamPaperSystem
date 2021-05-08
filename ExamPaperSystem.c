@@ -19,7 +19,7 @@ typedef struct node {
         int data;
 } node;
 
-int my_run(vlist this, long i) {
+int my_run(vlist this, long i, void* extra) {
     LogMe.w("%d", ((node*)(this->get_const(this, i)))->data);
     return i > 8;
 }
@@ -70,7 +70,7 @@ int main()
     list->insert(list, 0, &((node) { .data = -8 }));
     list->insert(list, 6, &((node) { .data = 99 }));
     list->remove(list, 9);
-    list->foreach(list, my_run);
+    list->foreach(list, my_run, NULL);
     delete_vlist(list, &list);
 
     void* zptr = zero_malloc(50);
