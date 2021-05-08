@@ -400,7 +400,7 @@ static char generator(void* params_p, int* continue_flag_p) {
 	node* np = gpp->np;
 	char buf[1];
 	gpp->recv_t_return_val = recv_t(np, buf, sizeof(buf), 0);
-	*continue_flag_p = (gpp->recv_t_return_val > 0);
+	*continue_flag_p = (gpp->recv_t_return_val == sizeof(buf));
 	return buf[0];
 }
 
@@ -474,9 +474,52 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 				}
 				else
 				{
-					LogMe.bt("[ Parsed HTTP Message From Socket %p ] HTTP/%d.%d %s %s", np->socket, hmsg.http_major, hmsg.http_minor, hmsg.url, getConstHttpMethodNameStr(hmsg.method));
+					LogMe.bt("[ Parsed HTTP Message From Socket %p ] HTTP/%d.%d %s %s %ld", np->socket, hmsg.http_major, hmsg.http_minor, hmsg.url, getConstHttpMethodNameStr(hmsg.method), hmsg.content_length);
 					hmsg.http_headers->foreach(hmsg.http_headers, printHttpHeader, NULL);
+					long content_length_f = hmsg.content_length;
+					long content_length = hmsg.content_length;
 					freeHttpMessage(&hmsg);
+					long recved_content_length = 0;
+					char content[5096] = { 0 };
+					// recv content
+					while (content_length > 0)
+					{
+						long r_len = content_length > 1024 ? 1024 : content_length;
+						content_length -= r_len;
+						char temp[1024] = { 0 };
+						int r_res = recv_t(np, temp, r_len, 0);
+						if (r_res == 0) {
+							// recv 0 this time
+							break;
+						}
+						else if (r_res == r_len)
+						{
+							if (recved_content_length + r_res < 5096)
+							{
+								memcpy(content + recved_content_length, temp, r_res);
+							}
+							recved_content_length += r_res;
+						}
+						else if (r_res > 0)
+						{
+							// recv a part this time
+							if (recved_content_length + r_res < 5096)
+							{
+								memcpy(content + recved_content_length, temp, r_res);
+							}
+							recved_content_length += r_res;
+							break;
+						}
+						else {
+							free(message); message = NULL;
+							return error_shutdown(np, params_p, 14);
+						}
+					}
+					if (content_length_f > 0)
+					{
+						LogMe.it("[ HTTP Content From Socket %p ] length = %ld | received length = %ld", np->socket, content_length_f, recved_content_length);
+						LogMe.n("%s", content);
+					}
 					// response 200 then go on
 					if (
 						send_text(
@@ -523,6 +566,20 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 		}
 		else if (nres == -3)
 		{
+			if (gp.recv_t_return_val > 0)
+			{
+				// 接收了一部分但出错或对方关闭了连接
+				return recv_0_shutdown(np, params_p, 15);
+			}
+			else if (gp.recv_t_return_val == 0)
+			{
+				// 对方关闭了连接
+				return recv_0_shutdown(np, params_p, 16);
+			}
+			else {
+				// 出错了
+				return error_shutdown(np, params_p, 17);
+			}
 			return error_shutdown(np, params_p, 11);
 		}
 		else if (nres == -4)

@@ -31,6 +31,7 @@
 #include <string.h>
 #endif // CASE_INSENSITIVE_STRCMP_MSVC
 
+#include <stdio.h>
 #include <stddef.h>
 #include <string.h>
 #include <ctype.h>
@@ -488,7 +489,8 @@ HttpMessage makeHttpMessage() {
 			.path = NULL,
 			.query_string = NULL,
 			.url_fragment = NULL,
-			.http_headers = NULL
+			.http_headers = NULL,
+			.content_length = 0
 	};
 }
 static int freeNode(vlist this, long i, void* extra) {
@@ -583,7 +585,44 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
 		return -1;
 	}
 	memcpy(v, at, length);
-	((HttpHeader*)(message->http_headers->get(message->http_headers, message->http_headers->size - 1)))->value = v;
+	HttpHeader* http_header_struct = message->http_headers->get(message->http_headers, message->http_headers->size - 1);
+	http_header_struct->value = v;
+	int cmp_success = 1;
+	if (
+#ifdef CASE_INSENSITIVE_STRCMP_MSVC
+		!_stricmp("content-length", http_header_struct->field)
+#elif defined(CASE_INSENSITIVE_STRCMP_GCC)
+		!strcasecmp("content-length", http_header_struct->field)
+#elif defined(CASE_INSENSITIVE_STRCMP_VUTILS)
+		!vstrcmp("content-length", http_header_struct->field, 0, &cmp_success)
+#else
+		!strcmp("content-length", http_header_struct->field)
+#endif // CASE_INSENSITIVE_STRCMP_MSVC
+		)
+	{
+		if (!cmp_success)
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
+		long length = 0;
+		if (sscanf_s(at, "%ld", &length) < 1)
+		{
+			llhttp_set_error_reason(parser, "Unable to parse content length");
+			return HPE_USER;
+		}
+		else {
+			message->content_length = length;
+		}
+	}
+	else
+	{
+		if (!cmp_success)
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
+	}
 	return 0;
 }
 HttpMessage parse_http_message(const char* message) {
