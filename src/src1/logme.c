@@ -63,7 +63,7 @@ static void reset_console_text_color() {
     set_console_text_color(NORMAL);
 }
 
-static HANDLE l_mutex = NULL;
+static volatile HANDLE l_mutex = NULL;
 
 static void l(const char* text, WORD color, va_list vlist) {
     if (l_mutex == NULL)
