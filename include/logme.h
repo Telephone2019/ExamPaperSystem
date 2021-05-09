@@ -5,7 +5,7 @@
 
 typedef void LOG_FUNCTION_TYPE(const char* text, ...);
 
-extern struct LogMe
+extern const struct LogMe
 {
     LOG_FUNCTION_TYPE* i;
     LOG_FUNCTION_TYPE* w;

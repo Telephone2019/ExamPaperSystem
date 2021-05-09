@@ -66,22 +66,25 @@ typedef struct params {
 	node* node_p;
 } params;
 
-static vlist connections_list = NULL;
-static int has_open;
+typedef struct tcp_server {
+	vlist connections_list;
+	int has_open;
+} tcp_server;
 
 // return non-zero to break
 static int check_cth(vlist this, long i, void* extra) {
-	has_open += ((node*)(this->get_const(this, i)))->open;
+	tcp_server* server = extra;
+	server->has_open += ((node*)(this->get_const(this, i)))->open;
 	return 0;
 }
 
-static int all_closed(){
-	has_open = 0;
-	if (connections_list != NULL)
+static int all_closed(tcp_server *server){
+	server->has_open = 0;
+	if (server->connections_list != NULL)
 	{
-		connections_list->foreach(connections_list, check_cth, NULL);
+		server->connections_list->foreach(server->connections_list, check_cth, server);
 	}
-	return !has_open;
+	return !(server->has_open);
 }
 
 static int clean_up_connection(node *connection_p, params *params_p, int returned) {
@@ -776,9 +779,13 @@ void tcp_server_run(int port, int memmory_lack) {
 
 	LogMe.it("listening...");
 
-	// 初始化线程列表
-	connections_list = make_vlist(sizeof(node));
-	if (connections_list == NULL) {
+	tcp_server server = {
+		// 初始化线程列表
+		.connections_list = make_vlist(sizeof(node)),
+		.has_open = 0
+	};
+
+	if (server.connections_list == NULL) {
 		LogMe.et("Unable to init connections_list");
 		closesocket(ListenSocket);
 		WSACleanup();
@@ -841,15 +848,15 @@ void tcp_server_run(int port, int memmory_lack) {
 		np->send_timeout_s = DEFAULT_SEND_TIMEOUT_S;
 		np->open = 1;
 		pp->node_p = np;
-		connections_list->quick_add(connections_list, np);
+		server.connections_list->quick_add(server.connections_list, np);
 		LogMe.wt("Connection thread [tid = %lu ] [client socket = %p ] start.", np->tid, np->socket);
 		ResumeThread(np->handle);
 
-		LogMe.bt("connections_list Size: %ld", connections_list->size);
+		LogMe.bt("connections_list Size: %ld", server.connections_list->size);
 
-		if (connections_list->size > max_cnt_list_size)
+		if (server.connections_list->size > max_cnt_list_size)
 		{
-			LogMe.et("Removed %ld closed connections from connections_list", connections_list->flush(connections_list, closed_cnt_filter, NULL));
+			LogMe.et("Removed %ld closed connections from connections_list", server.connections_list->flush(server.connections_list, closed_cnt_filter, NULL));
 		}
 
 		/* Debug Code */
@@ -880,11 +887,11 @@ void tcp_server_run(int port, int memmory_lack) {
 
 	// 等待所有的连接线程都自动退出
 	LogMe.et("waiting for all the connection threads to exit...");
-	while (!all_closed());
+	while (!all_closed(&server));
 	LogMe.et("All the connection threads have exited");
 
 	// 释放线程列表
-	delete_vlist(connections_list, &connections_list);
+	delete_vlist(server.connections_list, &(server.connections_list));
 
 	closesocket(ListenSocket);
 	WSACleanup();

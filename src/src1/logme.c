@@ -230,7 +230,7 @@ static void log_me_bt__(const char* text, ...) {
     free(tt);
 }
 
-struct LogMe LogMe = { 
+const struct LogMe LogMe = { 
     log_me_i__, 
     log_me_w__, 
     log_me_e__, 
