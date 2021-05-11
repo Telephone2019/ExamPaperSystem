@@ -1,8 +1,6 @@
 #ifndef LOGME
 #define LOGME
 
-#include <macros.h>
-
 typedef void LOG_FUNCTION_TYPE(const char* text, ...);
 
 extern const struct LogMe
