@@ -2,6 +2,7 @@
 #define LOGME
 
 #include <macros.h>
+#include <stdarg.h>
 
 typedef void LOG_FUNCTION_TYPE(const char* text, ...);
 
