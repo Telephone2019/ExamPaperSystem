@@ -21,7 +21,7 @@
 #define NORMAL NORMAL_WHILE
 #define LINE "\n"
 
-#elif (__STDC_HOSTED__ == 0)
+#elif defined(V_BARE_METAL)
 
 #define GREEN "I"
 #define YELLOW "W"
@@ -42,10 +42,10 @@
 
 #endif
 
-#if (__STDC_HOSTED__ == 0)
+#ifdef V_BARE_METAL
 // 此函数输出格式化后的字符串。
 int logme_vprintf(const char* restrict format, va_list vlist);
-#endif
+#endif // V_BARE_METAL
 
 static void* malloc_n(size_t n) {
     void* res = malloc(n);
@@ -101,7 +101,7 @@ static void l(const char* text, WORD color, va_list vlist) {
     while (!ReleaseMutex(l_mutex));
 }
 
-#elif (__STDC_HOSTED__ == 0)
+#elif defined(V_BARE_METAL)
 
 static const char* beautify(const char* s, const char* color) {
     char* res = malloc_n(strlen(s) + strlen(color) + strlen(DELIMITER) + 1);
