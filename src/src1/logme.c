@@ -44,7 +44,9 @@
 
 #ifdef V_BARE_METAL
 // 此函数输出格式化后的字符串。
-int logme_vprintf(const char* restrict format, va_list vlist);
+void logme_vprintf(const char* restrict format, va_list vlist);
+// 此函数返回当前时间值，用作日志中的时间标记。单位自定，含义自定。
+long long logme_get_time();
 #endif // V_BARE_METAL
 
 static void* malloc_n(size_t n) {
@@ -202,12 +204,23 @@ static void log_me_b__(const char* text, ...) {
 }
 
 static void format_time(char* output, size_t len) {
-    time_t rawtime;
+
+#ifdef V_BARE_METAL
+    long long
+#else
+    time_t
+#endif // V_BARE_METAL
+        rawtime;
+
     struct tm timeinfo;
 
+#ifdef V_BARE_METAL
+    rawtime = logme_get_time();
+#else
     time(&rawtime);
+#endif // V_BARE_METAL
 
-#ifdef LOGME_MSVC
+#if defined(V_MSVC) && defined(V_WINDOWS)
     localtime_s(&timeinfo, &rawtime);
 
     snprintf(output, len, "[ %04d-%02d-%02d %02d:%02d:%02d ]",
@@ -219,7 +232,7 @@ static void format_time(char* output, size_t len) {
         timeinfo.tm_sec);
 #else
     snprintf(output, len, "[ %lld ]", (long long)rawtime);
-#endif // LOGME_MSVC
+#endif // defined(V_MSVC) && defined(V_WINDOWS)
 }
 
 static char* with_time(const char *s) {
