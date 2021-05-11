@@ -42,13 +42,6 @@
 
 #endif
 
-#ifdef V_BARE_METAL
-// 此函数输出格式化后的字符串。
-void logme_vprintf(const char* restrict format, va_list vlist);
-// 此函数返回当前时间值，用作日志中的时间标记。单位自定，含义自定。
-long long logme_get_time();
-#endif // V_BARE_METAL
-
 static void* malloc_n(size_t n) {
     void* res = malloc(n);
     if (res != NULL)
