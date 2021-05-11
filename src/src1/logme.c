@@ -21,6 +21,16 @@
 #define NORMAL NORMAL_WHILE
 #define LINE "\n"
 
+#elif (__STDC_HOSTED__ == 0)
+
+#define GREEN "I"
+#define YELLOW "W"
+#define RED "E"
+#define BLUE "B"
+#define NORMAL "N"
+#define LINE "\n"
+#define DELIMITER "/"
+
 #else
 
 #define GREEN "\x1B[1;32m"
@@ -30,6 +40,11 @@
 #define NORMAL "\x1B[0m"
 #define LINE "\n"
 
+#endif
+
+#if (__STDC_HOSTED__ == 0)
+// 此函数输出格式化后的字符串。
+int logme_vprintf(const char* restrict format, va_list vlist);
 #endif
 
 static void* malloc_n(size_t n) {
@@ -43,6 +58,10 @@ static void* malloc_n(size_t n) {
 
 static char* line(const char* s) {
     char* res = malloc_n(strlen(s) + strlen(LINE) + 1);
+    if (!res)
+    {
+        return NULL;
+    }
 
     strcat(res, s);
     strcat(res, LINE);
@@ -73,18 +92,49 @@ static void l(const char* text, WORD color, va_list vlist) {
     }
     while (WaitForSingleObject(l_mutex, INFINITE) == WAIT_FAILED);
     const char* text_line = line(text);
+    text_line = text_line ? text_line : text;
     set_console_text_color(color);
     vprintf(text_line, vlist);
     fflush(stdout);
     reset_console_text_color();
-    free(text_line);
+    text_line == text ? 0 : free(text_line);
     while (!ReleaseMutex(l_mutex));
+}
+
+#elif (__STDC_HOSTED__ == 0)
+
+static const char* beautify(const char* s, const char* color) {
+    char* res = malloc_n(strlen(s) + strlen(color) + strlen(DELIMITER) + 1);
+    if (!res)
+    {
+        return NULL;
+    }
+
+    strcat(res, color);
+    strcat(res, DELIMITER);
+    strcat(res, s);
+
+    return res;
+}
+
+static void l(const char* text, const char* color, va_list vlist) {
+    const char* bs = beautify(text, color);
+    bs = bs ? bs : text;
+    const char* bs_line = line(bs);
+    bs_line = bs_line ? bs_line : bs;
+    logme_vprintf(bs_line, vlist);
+    bs_line == bs ? 0 : free(bs_line);
+    bs == text ? 0 : free(bs);
 }
 
 #else
 
 static const char* beautify(const char* s, const char* color) {
     char* res = malloc_n(strlen(s) + strlen(color) + strlen(NORMAL) + 1);
+    if (!res)
+    {
+        return NULL;
+    }
 
     strcat(res, color);
     strcat(res, s);
@@ -95,10 +145,12 @@ static const char* beautify(const char* s, const char* color) {
 
 static void l(const char* text, const char* color, va_list vlist) {
     const char* bs = beautify(text, color);
+    bs = bs ? bs : text;
     const char* bs_line = line(bs);
+    bs_line = bs_line ? bs_line : bs;
     vprintf(bs_line, vlist);
-    free(bs_line);
-    free(bs);
+    bs_line == bs ? 0 : free(bs_line);
+    bs == text ? 0 : free(bs);
 }
 
 #endif
@@ -179,6 +231,10 @@ static char* with_time(const char *s) {
     const char* suffix = "";
 
     char* res = malloc_n(strlen(s) + strlen(time) + strlen(d) + strlen(prefix) + strlen(suffix) + 1);
+    if (!res)
+    {
+        return NULL;
+    }
 
     strcat(res, prefix);
     strcat(res, time);
@@ -191,43 +247,48 @@ static char* with_time(const char *s) {
 
 static void log_me_it__(const char* text, ...) {
     char* tt = with_time(text);
+    tt = tt ? tt : text;
     va_list vlist;
     va_start(vlist, text);
     l(tt, GREEN, vlist);
     va_end(vlist);
-    free(tt);
+    tt == text ? 0 : free(tt);
 }
 static void log_me_wt__(const char* text, ...) {
     char* tt = with_time(text);
+    tt = tt ? tt : text;
     va_list vlist;
     va_start(vlist, text);
     l(tt, YELLOW, vlist);
     va_end(vlist);
-    free(tt);
+    tt == text ? 0 : free(tt);
 }
 static void log_me_et__(const char* text, ...) {
     char* tt = with_time(text);
+    tt = tt ? tt : text;
     va_list vlist;
     va_start(vlist, text);
     l(tt, RED, vlist);
     va_end(vlist);
-    free(tt);
+    tt == text ? 0 : free(tt);
 }
 static void log_me_nt__(const char* text, ...) {
     char* tt = with_time(text);
+    tt = tt ? tt : text;
     va_list vlist;
     va_start(vlist, text);
     l(tt, NORMAL, vlist);
     va_end(vlist);
-    free(tt);
+    tt == text ? 0 : free(tt);
 }
 static void log_me_bt__(const char* text, ...) {
     char* tt = with_time(text);
+    tt = tt ? tt : text;
     va_list vlist;
     va_start(vlist, text);
     l(tt, BLUE, vlist);
     va_end(vlist);
-    free(tt);
+    tt == text ? 0 : free(tt);
 }
 
 const struct LogMe LogMe = { 
