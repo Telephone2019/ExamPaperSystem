@@ -497,7 +497,8 @@ HttpMessage makeHttpMessage() {
 			.query_string = NULL,
 			.url_fragment = NULL,
 			.http_headers = NULL,
-			.content_length = 0
+			.content_length = 0,
+			.status_code = 0
 	};
 }
 static int freeNode(vlist this, long i, void* extra) {
@@ -539,6 +540,11 @@ static int url_cb(llhttp_t* parser, const char* at, size_t length) {
 		return -1;
 	}
 	memcpy(message->url, at, length);
+	return 0;
+}
+static int status_cb(llhttp_t* parser, const char* at, size_t length) {
+	HttpMessage* message = (HttpMessage*)parser->data;
+	message->status_code = parser->status_code;
 	return 0;
 }
 static int url_complete_cb(llhttp_t* parser) {
@@ -640,6 +646,7 @@ HttpMessage parse_http_message(const char* message, int is_response) {
 	/* Set user callback */
 	settings.on_url = url_cb;
 	settings.on_url_complete = url_complete_cb;
+	settings.on_status = status_cb;
 	settings.on_headers_complete = headers_complete_cb;
 	settings.on_header_field = on_header_field;
 	settings.on_header_value = on_header_value;
