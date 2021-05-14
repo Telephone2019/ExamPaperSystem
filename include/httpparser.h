@@ -96,6 +96,7 @@ typedef struct HttpMessage {
 	vlist http_headers;
 	long content_length;
 	long status_code;
+	char* location;
 } HttpMessage;
 // 请调用此函数来获取一个已初始化的 HttpMessage 结构体
 HttpMessage makeHttpMessage();

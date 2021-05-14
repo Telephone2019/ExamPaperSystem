@@ -498,7 +498,8 @@ HttpMessage makeHttpMessage() {
 			.url_fragment = NULL,
 			.http_headers = NULL,
 			.content_length = 0,
-			.status_code = 0
+			.status_code = 0,
+			.location = NULL
 	};
 }
 static int freeNode(vlist this, long i, void* extra) {
@@ -529,6 +530,7 @@ void freeHttpMessage(HttpMessage* httpmsg) {
 		httpmsg->http_headers->foreach(httpmsg->http_headers, freeNode, NULL);
 		delete_vlist(httpmsg->http_headers, &(httpmsg->http_headers));
 	}
+	free(httpmsg->location); httpmsg->location = NULL;
 }
 static int url_cb(llhttp_t* parser, const char* at, size_t length) {
 	HttpMessage* message = (HttpMessage*)parser->data;
@@ -626,6 +628,43 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
 		}
 		else {
 			message->content_length = length;
+		}
+	}
+	else
+	{
+		if (!cmp_success)
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
+	}
+	cmp_success = 1;
+	if (
+#ifdef CASE_INSENSITIVE_STRCMP_MSVC
+		!_stricmp("location", http_header_struct->field)
+#elif defined(CASE_INSENSITIVE_STRCMP_GCC)
+		!strcasecmp("location", http_header_struct->field)
+#elif defined(CASE_INSENSITIVE_STRCMP_VUTILS)
+		!vstrcmp("location", http_header_struct->field, 0, &cmp_success)
+#else
+		!strcmp("location", http_header_struct->field)
+#endif // CASE_INSENSITIVE_STRCMP_MSVC
+		)
+	{
+		if (!cmp_success)
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
+		message->location = zero_malloc(length + 1);
+		if (!(message->location))
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
+		else
+		{
+			memcpy(message->location, at, length);
 		}
 	}
 	else
