@@ -1,3 +1,8 @@
+/*
+此文件是 llhttp 项目（6.0.1版本）的一部分。
+llhttp 项目地址：https://github.com/nodejs/llhttp
+此文件来源：https://github.com/nodejs/node/blob/master/deps/llhttp/src/api.c
+*/
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

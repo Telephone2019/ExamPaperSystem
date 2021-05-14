@@ -1,3 +1,6 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "vutils.h"
 
 #include <stdio.h>
@@ -5,7 +8,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <macros.h>
+#include "macros.h"
 
 char* vitoa(int i, char* s, size_t len) {
 	snprintf(s, len, "%d", i);
@@ -215,3 +218,7 @@ int utf8_to_utf16_must_have_sufficient_buffer_including_wide_null(const char* ut
 	return MultiByteToWideChar(65001, 0, utf8str, -1, char16buf, buf_len_wide_char_num);
 }
 #endif // LOGME_WINDOWS
+
+#ifdef __cplusplus
+}
+#endif

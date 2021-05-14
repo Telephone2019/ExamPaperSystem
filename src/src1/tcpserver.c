@@ -421,12 +421,12 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 	{
 		char* message = NULL;
 		HttpMethod method = INVALID_METHOD;
-		int nres = next_http_message(&method, &message, generator, &gp);
+		int nres = next_http_message(&method, &message, generator, &gp, 0);
 		LogMe.et("[ HTTP next_http_message() Res From Socket %p ] %d", np->socket, nres);
 		if (nres >= 0)
 		{
 			LogMe.it("[ HTTP Message From Socket %p ] %s", np->socket, message);
-			HttpMessage hmsg = parse_http_message(message);
+			HttpMessage hmsg = parse_http_message(message, 0);
 			if (!(hmsg.malloc_success))
 			{
 				LogMe.et("[ Parsed HTTP Message From Socket %p ] <Malloc Fail>", np->socket);

@@ -1,3 +1,6 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "httpparser.h"
 
 #ifdef CASE_INSENSITIVE_STRSTR_GCC
@@ -37,8 +40,8 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-#include <vutils.h>
-#include <vlist.h>
+#include "vutils.h"
+#include "vlist.h"
 
 static long long last_index_of_str(const char* s, const char* pattern, long long before_index
 
@@ -309,6 +312,10 @@ HttpMethod httpMethodFromStr(const char* method_name) {
 	{
 		return PATCH;
 	}
+	else if (!strcmp(method_name, "HTTP/"))
+	{
+		return HTTP_RESPONSE_;
+	}
 	else
 	{
 		return INVALID_METHOD;
@@ -317,7 +324,7 @@ HttpMethod httpMethodFromStr(const char* method_name) {
 
 const char* getConstHttpMethodNameStr(HttpMethod http_method) {
 	const char* (http_method_names[]) = {
-		"GET", "POST", "HEAD", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH", "INVALID_METHOD"
+		"GET", "POST", "HEAD", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH", "INVALID_METHOD", "HTTP/"
 	};
 	return http_method_names[http_method];
 }
@@ -358,7 +365,7 @@ static char generator_wrapper(void* generator_wrapper_param_p, int* continue_fla
 	}
 }
 
-int next_http_message(HttpMethod *method_p, char **message_pp, GENERATOR_FUNCTION_TYPE* generator, GENERATOR_PARAM_TYPE* generator_param_p) {
+int next_http_message(HttpMethod *method_p, char **message_pp, GENERATOR_FUNCTION_TYPE* generator, GENERATOR_PARAM_TYPE* generator_param_p, int is_response) {
 	if (!method_p || !message_pp)
 	{
 		return -1;
@@ -373,7 +380,7 @@ int next_http_message(HttpMethod *method_p, char **message_pp, GENERATOR_FUNCTIO
 	int malloc_fail_type = 0;
 again:;
 	*method_p = INVALID_METHOD;
-	for (HttpMethod i = GET; i < INVALID_METHOD; i++)
+	for (HttpMethod i = is_response ? HTTP_RESPONSE_ : GET; i < (is_response ? HTTP_RESPONSE_+1 : INVALID_METHOD); i++)
 	{
 		const char* method_name_const_str = getConstHttpMethodNameStr(i);
 		int method_name_strlen = strlen(method_name_const_str);
@@ -467,7 +474,7 @@ again:;
 #endif // CASE_INSENSITIVE_STRSTR
 
 #ifdef CASE_INSENSITIVE_STRCMP
-#include <llhttp.h>
+#include "llhttp.h"
 void freeHttpHeader(HttpHeader* hh) {
 	if (hh == NULL)
 	{
@@ -625,7 +632,7 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
 	}
 	return 0;
 }
-HttpMessage parse_http_message(const char* message) {
+HttpMessage parse_http_message(const char* message, int is_response) {
 	llhttp_t parser;
 	llhttp_settings_t settings;
 	/* Initialize user callbacks and settings */
@@ -640,7 +647,7 @@ HttpMessage parse_http_message(const char* message) {
 	 * HTTP_REQUEST and HTTP_RESPONSE parsing automatically while reading the first
 	 * input.
 	 */
-	llhttp_init(&parser, HTTP_BOTH, &settings);
+	llhttp_init(&parser, is_response ? HTTP_RESPONSE : HTTP_REQUEST, &settings);
 	/* Set user data */
 	HttpMessage httpmsg = makeHttpMessage();
 	parser.data = &httpmsg;
@@ -670,3 +677,7 @@ HttpMessage parse_http_message(const char* message) {
 	return httpmsg;
 }
 #endif // CASE_INSENSITIVE_STRCMP
+
+#ifdef __cplusplus
+}
+#endif
