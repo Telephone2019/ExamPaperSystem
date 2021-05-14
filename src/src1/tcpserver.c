@@ -407,8 +407,8 @@ static char generator(void* params_p, int* continue_flag_p) {
 	return buf[0];
 }
 
-static int printHttpHeader(vlist this, long i, void* extra) {
-	const HttpHeader* header = this->get_const(this, i);
+static int printHttpHeader(vlist this_vlist, long i, void* extra) {
+	const HttpHeader* header = this_vlist->get_const(this_vlist, i);
 	LogMe.n("%s: %s", header->field, header->value);
 	return 0; // go on
 }
