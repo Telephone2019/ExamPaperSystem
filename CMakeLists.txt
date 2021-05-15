@@ -1,4 +1,4 @@
-﻿cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.8)
 
 # 指定C/C++编译器
 # set(CMAKE_C_COMPILER "/bin/gcc")
