@@ -10,6 +10,9 @@ extern "C" {
 
 #include "macros.h"
 
+#define vmax(a, b) ((a)>(b)?(a):(b))
+#define vmin(a, b) ((a)<(b)?(a):(b))
+
 char* vitoa(int i, char* s, size_t len) {
 	snprintf(s, len, "%d", i);
 	return s;
@@ -207,6 +210,144 @@ int vstrcmp(const char* s1, const char* s2, int case_sensitive, int* success) {
 		free(s2m); s2m = NULL;
 	}
 	return res;
+}
+
+UrlMeta parse_url(const char* url) {
+	UrlMeta res = {
+		.valid = 1,
+		.protocol = {0},
+		.host = {0},
+		.port = 0,
+		.path_start = NULL,
+		.query_start = NULL,
+		.fragment_start = NULL
+	};
+	size_t url_len = strlen(url);
+	if (url_len < 2)
+	{
+		res.valid = 0;
+		return res;
+	}
+	const char* url_end = url + url_len;
+	char* first_colon = strstr(url, ":");
+	if (first_colon == NULL || first_colon <= url)
+	{
+		res.valid = 0;
+		return res;
+	}
+	memcpy(res.protocol, url, first_colon > url ? first_colon - url : 0);
+	if (first_colon + 2 < url_end - 1 && *(first_colon+1) == '/' && *(first_colon+2) == '/')
+	{
+		char* host_start = first_colon + 3;
+
+		char* current = host_start;
+		int host_len = 0;
+		while (current < url_end && *current != ':' && *current != '/' && *current != '\?' && *current != '#' && host_len < sizeof(res.host) - 1) {
+			res.host[host_len++] = *current;
+			current++;
+		}
+		if (current >= url_end)
+		{
+			handle_complete:
+			return res;
+		}
+		else if (*current == ':')
+		{
+			current++;
+			if (current < url_end)
+			{
+				if (sscanf(current, "%ld", &(res.port)) < 1)
+				{
+					res.valid = 0;
+					return res;
+				}
+			}
+			while (current < url_end && *current != '/' && *current != '\?' && *current != '#') {
+				current++;
+			}
+			if (current >= url_end)
+			{
+				goto handle_complete;
+			}
+			else if (*current == '/')
+			{
+				handle_slash:
+				res.path_start = current;
+				current++;
+				while (current < url_end && *current != '\?' && *current != '#') {
+					current++;
+				}
+				if (current >= url_end)
+				{
+					goto handle_complete;
+				}
+				else if (*current == '\?')
+				{
+					handle_question_mark:
+					current++;
+					if (current < url_end)
+					{
+						res.query_start = current;
+					}
+					while (current < url_end && *current != '#') {
+						current++;
+					}
+					if (current >= url_end)
+					{
+						goto handle_complete;
+					}
+					else if (*current == '#')
+					{
+						handle_number_sign:
+						current++;
+						if (current < url_end)
+						{
+							res.fragment_start = current;
+						}
+						return res;
+					}
+				}
+				else if (*current == '#')
+				{
+					goto handle_number_sign;
+				}
+			}
+			else if (*current == '\?')
+			{
+				goto handle_question_mark;
+			}
+			else if (*current == '#')
+			{
+				goto handle_number_sign;
+			}
+		}
+		else if (*current == '/')
+		{
+			goto handle_slash;
+		}
+		else if (*current == '\?')
+		{
+			goto handle_question_mark;
+		}
+		else if (*current == '#')
+		{
+			goto handle_number_sign;
+		}
+		else if (host_len >= sizeof(res.host) - 1)
+		{
+			res.valid = 0;
+			return res;
+		}
+		else
+		{
+			res.valid = 0;
+			return res;
+		}
+	}
+	else {
+		res.valid = 0;
+		return res;
+	}
 }
 
 #ifdef LOGME_WINDOWS
