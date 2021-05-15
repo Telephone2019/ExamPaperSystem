@@ -177,8 +177,11 @@ void logme_init() {
 
 #elif defined(V_BARE_METAL)
 
-    while (!logme_prepare());
-    prepared = 1;
+    if (!prepared)
+    {
+        while (!logme_prepare());
+        prepared = 1;
+    }
 
 #endif // LOGME_WINDOWS
 }
