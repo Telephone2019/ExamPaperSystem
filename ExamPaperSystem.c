@@ -78,18 +78,21 @@ int main()
     free(zptr);
 
 #ifdef LOGME_WINDOWS
+//#define TEST_HOOK
+#ifdef TEST_HOOK
     int hook_success;
-    HANDLE hook,sharedobj;
+    HANDLE hook, sharedobj;
     InstallHook(&hook_success, &hook, &sharedobj);
     if (hook_success) {
         LogMe.i("HOOK INSTALL SUCCESS!");
-        Sleep(15000);
+        Sleep(1000000);
         UninstallHook(hook, &hook, sharedobj, &sharedobj);
         LogMe.w("HOOK UNINSTALLED");
     }
     else {
         LogMe.e("HOOK INSTALL FAIL!");
     }
+#endif // TEST_HOOK
     tcp_server_run(23456, 1);
 #endif // LOGME_WINDOWS
 

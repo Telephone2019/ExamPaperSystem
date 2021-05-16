@@ -3,9 +3,23 @@ extern "C" {
 #endif
 #include "kbhook.h"
 
+#include <stdio.h>
+
 DllExport LRESULT CALLBACK KBHOOK_KeyboardProc____(int nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode < 0) {
 		return CallNextHookEx(NULL, nCode, wParam, lParam);
+	}
+	else
+	{
+		printf("vk = %llX\n", wParam);
+		if (1)
+		{
+			return 0;
+		}
+		else
+		{
+			return CallNextHookEx(NULL, nCode, wParam, lParam);
+		}
 	}
 }
 
