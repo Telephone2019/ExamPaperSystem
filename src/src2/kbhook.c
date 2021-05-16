@@ -1,118 +1,117 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "kbhook.h"
 
-#include <windows.h>
-
-HOOKPROC hkprcSysMsg;
-static HINSTANCE hinstDLL;
-static HHOOK hhookSysMsg;
-
-static void KeyBoardHook_Main();
-
-DllExport int kbhook_run_success() {
-	KeyBoardHook_Main();
-	return 1;
-}
-
-/*
-DllExport LRESULT CALLBACK WNDProc(HWND hwnd,UINT umsg,WPARAM wparam,LPARAM lparam) {
-	switch (umsg)
-	{
-	case WM_DESTROY:
-		UninstallHook();
-
-	case WM_CREATE:
-		InstallHook();
-
-	case WM_LBUTTONDBLCLK:
-
-	default:
-		return DefWindowProc(hwnd, umsg, wparam, lparam);
-		break;
+DllExport LRESULT CALLBACK KBHOOK_KeyboardProc____(int nCode, WPARAM wParam, LPARAM lParam) {
+	if (nCode < 0) {
+		return CallNextHookEx(NULL, nCode, wParam, lParam);
 	}
 }
-*/
 
-/// <summary>
-/// 回调函数
-/// </summary>
-/// <param name="nnCode"></param>
-/// <param name="wParam">虚拟按键的代号</param>
-/// <param name="lParam">键状态</param>
-/// <returns></returns>
-/// 如果是使用WH_KEYBOARD, 要写在DLL中, 通过注入线程来调用, 这里要注意传入Hook线程的窗口句柄,用来Post一个消息通知Hook线程来处理消息
-DllExport LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
-
-	if (nCode < 0 || nCode == HC_NOREMOVE) {
-		// 如果代码小于零，则挂钩过程必须将消息传递给CallNextHookEx函数，而无需进一步处理，并且应返回CallNextHookEx返回的值。(来自官网手册)
-		return CallNextHookEx(global_keyboard_hook, nCode, wParam, lParam);
+DllExport void UninstallHook(HANDLE hook, HANDLE* hookaddr, HANDLE shareobj, HANDLE* shareobj_addr) {//
+	if (hook == NULL) {
+		return;
 	}
-	if (lParam & 0x40000000) {
-		// 【第30位的含义】键状态。如果在发送消息之前按下了键，则值为1。如果键被释放，则为0。(来自官网手册)
-		// 我们只考虑被按下后松开的状态
-		if ((wParam == VK_F5) ||
-			(wParam == VK_F4) ||
-			(wParam == VK_NUMPAD0)){
-			InstallHook();
+	*hookaddr = *shareobj_addr = NULL;
+	UnhookWindowsHookEx(hook);
+	// you should not close the hook handle, because it is held by the system
+	//CloseHandle(hook);
+	ReleaseMutex(shareobj);
+}
+
+static void MessageLoop(HANDLE shareobj) {
+	MSG msg;
+	while (1) {
+		if (GetMessage(&msg, NULL, 0, 0)) {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
 		}
-	
-		// Simulate a key press
-		//keybd_event(VK_NUMPAD1,0x45, KEYEVENTF_EXTENDEDKEY | 0, 0);
-
-		// Simulate a key release
-		//keybd_event(VK_NUMPAD1,0x45,KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP,0);
-
-		return CallNextHookEx(global_keyboard_hook, nCode, wParam, lParam);
+		else {
+			DWORD waitres;
+			while ((waitres = WaitForSingleObject(shareobj, 0)) == WAIT_FAILED);
+			switch (waitres)
+			{
+			case WAIT_ABANDONED:
+			case WAIT_OBJECT_0:
+				CloseHandle(shareobj);
+				return;
+				break;
+			default:
+				break;
+			}
+		}
 	}
-
-	return CallNextHookEx(global_keyboard_hook, nCode, wParam, lParam);
 }
 
-
-
-
-/*
-您必须将全球挂钩程序置于与安装挂钩程序的应用程序分开的 DLL 中。安装应用程序必须具有 DLL 模块的句柄，然后才能安装挂钩程序。
-*/
-DllExport int InstallHook() {
-	// 【参数1】钩子的类型，这里代表键盘钩子
-	// 【参数2】钩子处理的函数
-	// 【参数3】获取模块,KBDLL为DLL的项目名称
-	// 【参数4】线程的ID，如果是全局钩子的话，这里要填0，如果是某个线程的钩子，那就需要写线程的ID
-	
-	HOOKPROC hkprcSysMsg;
-	static HINSTANCE hinstDLL;
-	hinstDLL = LoadLibrary(TEXT("D:\\My_Program\\ExamPaperSystem\\out\\build\\x64-Debug (默认值)\\KBHook.dll"));
-	hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "LLKeyboardProc");
-	global_keyboard_hook = SetWindowsHookEx(WH_KEYBOARD_LL, hkprcSysMsg, hinstDLL, 0);
-	//global_keyboard_hook = SetWindowsHookEx(WH_KEYBOARD_LL, LLKeyboardProc, GetModuleHandle(KBHDLL), 0);
-	if (global_keyboard_hook == NULL) {
-		
-		return 0;
+static HANDLE SetHook() {
+	HINSTANCE hinstDLL = LoadLibrary(TEXT("KBHook.dll"));
+	if (!hinstDLL) {
+		return NULL;
 	}
-	return 1;
-
-
-	/*
-	HOOKPROC hkprcSysMsg;
-	static HINSTANCE hinstDLL;
-	static HHOOK hhookSysMsg;
-
-	hinstDLL = LoadLibrary(TEXT("c:\\myapp\\sysmsg.dll"));
-	hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "SysMessageProc");
-
-	hhookSysMsg = SetWindowsHookEx(
-		WH_SYSMSGFILTER,
-		hkprcSysMsg,
-		hinstDLL,
-		0);
-	*/
-
-
+	HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "KBHOOK_KeyboardProc____");
+	HHOOK hhookSysMsg = SetWindowsHookEx(WH_KEYBOARD_LL, hkprcSysMsg, hinstDLL, 0);
+	if (hhookSysMsg == NULL) {
+		CloseHandle(hinstDLL);
+	}
+	return hhookSysMsg;
 }
 
-	UninstallHook();
+typedef struct MyHookKey_Parameter {
+	HANDLE* hookaddr;
+	HANDLE sharedobject;
+	int* hooksuccess;
+} MyHookKey_Parameter;
 
-static void KeyBoardHook_Main() {
-	system("chcp");
+static DWORD WINAPI MyHookKey(_In_ LPVOID lpParameter) {
+	MyHookKey_Parameter param = *(MyHookKey_Parameter*)lpParameter;
+	free(lpParameter); lpParameter = NULL;
+
+	*param.hookaddr = SetHook();
+	*param.hooksuccess = *param.hookaddr ? 1 : 0;
+
+	if (!*param.hooksuccess) {
+		return 1;
+	}
+	MessageLoop(param.sharedobject);
+	return 0;
 }
 
+DllExport void InstallHook(int* hooksuccess, HANDLE* hookaddr, HANDLE* sharedobj_addr) {
+	HANDLE hthread;
+
+	MyHookKey_Parameter* param = malloc(sizeof(MyHookKey_Parameter));
+	if (!param) {
+		*hooksuccess = 0;
+		return;
+	}
+	param->hookaddr = hookaddr;
+	param->hooksuccess = hooksuccess;
+	param->sharedobject = CreateMutex(NULL, 1, NULL);
+	HANDLE hsobj = param->sharedobject;
+	if (!param->sharedobject) {
+		*hooksuccess = 0;
+		free(param);
+		return;
+	}
+	hthread = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)MyHookKey, param, NULL, NULL);
+
+	if (!hthread) {
+		*hooksuccess = 0;
+		CloseHandle(param->sharedobject);
+		free(param);
+		return;
+	}
+	else {
+		*hooksuccess = 1;
+		*hookaddr = NULL;
+		while (*hooksuccess && !*hookaddr);
+		*sharedobj_addr = hsobj;
+		CloseHandle(hthread);
+		return;
+	}
+}
+
+#ifdef __cplusplus
+}
+#endif

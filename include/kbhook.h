@@ -1,18 +1,26 @@
 #ifndef KBHOOK
 #define KBHOOK
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <macros.h>
+#include <Windows.h>
 
 #ifdef LOGME_MSVC
 #define DllExport __declspec( dllexport )
 #endif // LOGME_MSVC
 
-DllExport int kbhook_run_success();
+DllExport LRESULT CALLBACK KBHOOK_KeyboardProc____(int nCode, WPARAM wParam, LPARAM lParam);
 
-DllExport int InstallHook();
-DllExport int UninstallHook();
+DllExport void UninstallHook(HANDLE hook, HANDLE* hookaddr, HANDLE shareobj, HANDLE* shareobj_addr);
 
-DllExport int InstallHook_s();
+DllExport void InstallHook(int* hooksuccess, HANDLE* hookaddr, HANDLE* sharedobj_addr);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !KBHOOK
 
