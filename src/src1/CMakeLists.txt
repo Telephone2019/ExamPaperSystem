@@ -1,37 +1,53 @@
 cmake_minimum_required (VERSION 3.8)
 
-# ÉèÖÃ´ËÏîÄ¿µÄ×Ô¶¨Òå¿âµÄÍ·ÎÄ¼şÄ¿Â¼
+# è®¾ç½®æ­¤é¡¹ç›®çš„è‡ªå®šä¹‰åº“çš„å¤´æ–‡ä»¶ç›®å½•
 set(MyInclude1 "${PROJECT_SOURCE_DIR}/include")
 
-################################################ ×Ô¶¨Òå¿â ################################################
+################################################ è‡ªå®šä¹‰åº“ ################################################
 
-# ÕâÊÇÒ»¸ö×Ô¶¨Òå¿â
+# è¿™æ˜¯ä¸€ä¸ªè‡ªå®šä¹‰åº“
 add_library(LogMe "logme.c")
 
 add_library(VList "vlist.c")
 
 add_library(VUtils "vutils.c")
 
-# ½öÊÊÓÃÓÚ windows Æ½Ì¨
+add_library(HttpParser "httpparser.c")
+
+add_library(HttpUtils "httputils.c")
+
+add_library(llhttp "llhttp.c" "llhttp_api.c" "llhttp_http.c")
+
+# ä»…é€‚ç”¨äº windows å¹³å°
 add_library(TCPServer "tcpserver.c")
 
-########################################### ×Ô¶¨Òå¿âµÄÍ·ÎÄ¼şÄ¿Â¼ ###########################################
+########################################### è‡ªå®šä¹‰åº“çš„å¤´æ–‡ä»¶ç›®å½• ###########################################
 
-# Ê¹ÓÃ×Ô¶¨Òå¿âĞèÒªÌí¼ÓÍ·ÎÄ¼şÄ¿Â¼£¬PUBLIC ±íÃ÷¿â±¾ÉíºÍ¿âµÄÊ¹ÓÃÕß¶¼ĞèÒªµ½´ËÍ·ÎÄ¼şÄ¿Â¼Ñ°ÕÒÍ·ÎÄ¼ş
+# ä½¿ç”¨è‡ªå®šä¹‰åº“éœ€è¦æ·»åŠ å¤´æ–‡ä»¶ç›®å½•ï¼ŒPUBLIC è¡¨æ˜åº“æœ¬èº«å’Œåº“çš„ä½¿ç”¨è€…éƒ½éœ€è¦åˆ°æ­¤å¤´æ–‡ä»¶ç›®å½•å¯»æ‰¾å¤´æ–‡ä»¶
 target_include_directories(LogMe PUBLIC ${MyInclude1})
 
 target_include_directories(VList PUBLIC ${MyInclude1})
 
 target_include_directories(VUtils PUBLIC ${MyInclude1})
 
-# ½öÊÊÓÃÓÚ windows Æ½Ì¨
+target_include_directories(HttpParser PUBLIC ${MyInclude1})
+
+target_include_directories(HttpUtils PUBLIC ${MyInclude1})
+
+target_include_directories(llhttp PUBLIC ${MyInclude1})
+
+# ä»…é€‚ç”¨äº windows å¹³å°
 target_include_directories(TCPServer PUBLIC ${MyInclude1})
 
-######################################### ×Ô¶¨Òå¿âĞèÒªÁ´½ÓµÄÆäËû¿â #########################################
+######################################### è‡ªå®šä¹‰åº“éœ€è¦é“¾æ¥çš„å…¶ä»–åº“ #########################################
 
-# Ò»Ğ©×Ô¶¨Òå¿âĞèÒªÁ´½Ó±ğµÄ¿â£¬PRIVATE ±íÃ÷Á´½ÓµÄ¿â½öÓÃÓÚ×Ô¶¨Òå¿â±¾Éí
+# ä¸€äº›è‡ªå®šä¹‰åº“éœ€è¦é“¾æ¥åˆ«çš„åº“ï¼ŒPRIVATE è¡¨æ˜é“¾æ¥çš„åº“ä»…ç”¨äºè‡ªå®šä¹‰åº“æœ¬èº«
+target_link_libraries(HttpParser PRIVATE VUtils llhttp)
+target_link_libraries(HttpParser PUBLIC VList)
+# åªæœ‰ windows å¹³å°æ‰æœ‰çš„é“¾æ¥åº“
+target_link_libraries(HttpParser PRIVATE Shlwapi)
 
-# ½öÊÊÓÃÓÚ windows Æ½Ì¨
-target_link_libraries(TCPServer PRIVATE LogMe Ws2_32 VUtils VList)
+# ä»…é€‚ç”¨äº windows å¹³å°
+target_link_libraries(TCPServer PRIVATE LogMe Ws2_32 VUtils VList Mswsock HttpUtils HttpParser)
 
 ##########################################################################################################

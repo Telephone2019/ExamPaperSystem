@@ -21,25 +21,42 @@
 #define NORMAL NORMAL_WHILE
 #define LINE "\n"
 
+#elif defined(V_BARE_METAL)
+
+#define GREEN "I"
+#define YELLOW "W"
+#define RED "E"
+#define BLUE "B"
+#define NORMAL "N"
+#define LINE "\n"
+#define DELIMITER "/"
+
 #else
 
-#define GREEN "\e[1;32m"
-#define YELLOW "\e[1;33m"
-#define RED "\e[1;31m"
-#define BLUE "\e[1;34m"
-#define NORMAL "\e[0m"
+#define GREEN "\x1B[1;32m"
+#define YELLOW "\x1B[1;33m"
+#define RED "\x1B[1;31m"
+#define BLUE "\x1B[1;34m"
+#define NORMAL "\x1B[0m"
 #define LINE "\n"
 
 #endif
 
 static void* malloc_n(size_t n) {
     void* res = malloc(n);
-    memset(res, 0, n);
+    if (res != NULL)
+    {
+        memset(res, 0, n);
+    }
     return res;
 }
 
 static char* line(const char* s) {
     char* res = malloc_n(strlen(s) + strlen(LINE) + 1);
+    if (!res)
+    {
+        return NULL;
+    }
 
     strcat(res, s);
     strcat(res, LINE);
@@ -60,28 +77,72 @@ static void reset_console_text_color() {
     set_console_text_color(NORMAL);
 }
 
-static HANDLE l_mutex = NULL;
+static volatile HANDLE l_mutex = NULL;
 
-static void l(const char* text, WORD color, va_list vlist) {
+static void l(const char* text, WORD color, va_list valist_list, ...) {
     if (l_mutex == NULL)
     {
-        puts("Please call logme_init() from single thread to init LogMe first.");
+        va_list empty_valist;
+        va_start(empty_valist, valist_list);
+        vprintf("Please call logme_init() from single thread to init LogMe first.\n", empty_valist);
+        va_end(empty_valist);
         return;
     }
     while (WaitForSingleObject(l_mutex, INFINITE) == WAIT_FAILED);
     const char* text_line = line(text);
+    text_line = text_line ? text_line : text;
     set_console_text_color(color);
-    vprintf(text_line, vlist);
+    vprintf(text_line, valist_list);
     fflush(stdout);
     reset_console_text_color();
-    free(text_line);
+    text_line == text ? 0 : free(text_line);
     while (!ReleaseMutex(l_mutex));
+}
+
+#elif defined(V_BARE_METAL)
+
+static const char* beautify(const char* s, const char* color) {
+    char* res = malloc_n(strlen(s) + strlen(color) + strlen(DELIMITER) + 1);
+    if (!res)
+    {
+        return NULL;
+    }
+
+    strcat(res, color);
+    strcat(res, DELIMITER);
+    strcat(res, s);
+
+    return res;
+}
+
+static volatile int prepared = 0;
+
+static void l(const char* text, const char* color, va_list valist_list, ...) {
+    if (!prepared)
+    {
+        va_list empty_valist;
+        va_start(empty_valist, valist_list);
+        logme_vprintf("Please call logme_init() from single thread to init LogMe first.\n", empty_valist);
+        va_end(empty_valist);
+        return;
+    }
+    const char* bs = beautify(text, color);
+    bs = bs ? bs : text;
+    const char* bs_line = line(bs);
+    bs_line = bs_line ? bs_line : bs;
+    logme_vprintf(bs_line, valist_list);
+    bs_line == bs ? 0 : free(bs_line);
+    bs == text ? 0 : free(bs);
 }
 
 #else
 
 static const char* beautify(const char* s, const char* color) {
     char* res = malloc_n(strlen(s) + strlen(color) + strlen(NORMAL) + 1);
+    if (!res)
+    {
+        return NULL;
+    }
 
     strcat(res, color);
     strcat(res, s);
@@ -90,12 +151,14 @@ static const char* beautify(const char* s, const char* color) {
     return res;
 }
 
-static void l(const char* text, const char* color, va_list vlist) {
+static void l(const char* text, const char* color, va_list valist_list) {
     const char* bs = beautify(text, color);
+    bs = bs ? bs : text;
     const char* bs_line = line(bs);
-    vprintf(bs_line, vlist);
-    free(bs_line);
-    free(bs);
+    bs_line = bs_line ? bs_line : bs;
+    vprintf(bs_line, valist_list);
+    bs_line == bs ? 0 : free(bs_line);
+    bs == text ? 0 : free(bs);
 }
 
 #endif
@@ -112,54 +175,78 @@ void logme_init() {
         );
     }
 
+#elif defined(V_BARE_METAL)
+
+    if (!prepared)
+    {
+        while (!logme_prepare());
+        prepared = 1;
+    }
+
 #endif // LOGME_WINDOWS
 }
 
 static void log_me_i__(const char* text, ...) {
-    va_list vlist;
-    va_start(vlist, text);
-    l(text, GREEN, vlist);
-    va_end(vlist);
+    va_list valist_list;
+    va_start(valist_list, text);
+    l(text, GREEN, valist_list);
+    va_end(valist_list);
 }
 static void log_me_w__(const char* text, ...) {
-    va_list vlist;
-    va_start(vlist, text);
-    l(text, YELLOW, vlist);
-    va_end(vlist);
+    va_list valist_list;
+    va_start(valist_list, text);
+    l(text, YELLOW, valist_list);
+    va_end(valist_list);
 }
 static void log_me_e__(const char* text, ...) {
-    va_list vlist;
-    va_start(vlist, text);
-    l(text, RED, vlist);
-    va_end(vlist);
+    va_list valist_list;
+    va_start(valist_list, text);
+    l(text, RED, valist_list);
+    va_end(valist_list);
 }
 static void log_me_n__(const char* text, ...) {
-    va_list vlist;
-    va_start(vlist, text);
-    l(text, NORMAL, vlist);
-    va_end(vlist);
+    va_list valist_list;
+    va_start(valist_list, text);
+    l(text, NORMAL, valist_list);
+    va_end(valist_list);
 }
 static void log_me_b__(const char* text, ...) {
-    va_list vlist;
-    va_start(vlist, text);
-    l(text, BLUE, vlist);
-    va_end(vlist);
+    va_list valist_list;
+    va_start(valist_list, text);
+    l(text, BLUE, valist_list);
+    va_end(valist_list);
 }
 
 static void format_time(char* output, size_t len) {
-    time_t rawtime;
-    struct tm* timeinfo;
 
+#ifdef V_BARE_METAL
+    long long
+#else
+    time_t
+#endif // V_BARE_METAL
+        rawtime;
+
+    struct tm timeinfo;
+
+#ifdef V_BARE_METAL
+    rawtime = logme_get_time();
+#else
     time(&rawtime);
-    timeinfo = localtime(&rawtime);
+#endif // V_BARE_METAL
+
+#if defined(V_MSVC) && defined(V_WINDOWS)
+    localtime_s(&timeinfo, &rawtime);
 
     snprintf(output, len, "[ %04d-%02d-%02d %02d:%02d:%02d ]",
-        timeinfo->tm_year + 1900,
-        timeinfo->tm_mon + 1,
-        timeinfo->tm_mday,
-        timeinfo->tm_hour,
-        timeinfo->tm_min,
-        timeinfo->tm_sec);
+        timeinfo.tm_year + 1900,
+        timeinfo.tm_mon + 1,
+        timeinfo.tm_mday,
+        timeinfo.tm_hour,
+        timeinfo.tm_min,
+        timeinfo.tm_sec);
+#else
+    snprintf(output, len, "[ %lld ]", (long long)rawtime);
+#endif // defined(V_MSVC) && defined(V_WINDOWS)
 }
 
 static char* with_time(const char *s) {
@@ -171,6 +258,10 @@ static char* with_time(const char *s) {
     const char* suffix = "";
 
     char* res = malloc_n(strlen(s) + strlen(time) + strlen(d) + strlen(prefix) + strlen(suffix) + 1);
+    if (!res)
+    {
+        return NULL;
+    }
 
     strcat(res, prefix);
     strcat(res, time);
@@ -183,46 +274,51 @@ static char* with_time(const char *s) {
 
 static void log_me_it__(const char* text, ...) {
     char* tt = with_time(text);
-    va_list vlist;
-    va_start(vlist, text);
-    l(tt, GREEN, vlist);
-    va_end(vlist);
-    free(tt);
+    tt = tt ? tt : text;
+    va_list valist_list;
+    va_start(valist_list, text);
+    l(tt, GREEN, valist_list);
+    va_end(valist_list);
+    tt == text ? 0 : free(tt);
 }
 static void log_me_wt__(const char* text, ...) {
     char* tt = with_time(text);
-    va_list vlist;
-    va_start(vlist, text);
-    l(tt, YELLOW, vlist);
-    va_end(vlist);
-    free(tt);
+    tt = tt ? tt : text;
+    va_list valist_list;
+    va_start(valist_list, text);
+    l(tt, YELLOW, valist_list);
+    va_end(valist_list);
+    tt == text ? 0 : free(tt);
 }
 static void log_me_et__(const char* text, ...) {
     char* tt = with_time(text);
-    va_list vlist;
-    va_start(vlist, text);
-    l(tt, RED, vlist);
-    va_end(vlist);
-    free(tt);
+    tt = tt ? tt : text;
+    va_list valist_list;
+    va_start(valist_list, text);
+    l(tt, RED, valist_list);
+    va_end(valist_list);
+    tt == text ? 0 : free(tt);
 }
 static void log_me_nt__(const char* text, ...) {
     char* tt = with_time(text);
-    va_list vlist;
-    va_start(vlist, text);
-    l(tt, NORMAL, vlist);
-    va_end(vlist);
-    free(tt);
+    tt = tt ? tt : text;
+    va_list valist_list;
+    va_start(valist_list, text);
+    l(tt, NORMAL, valist_list);
+    va_end(valist_list);
+    tt == text ? 0 : free(tt);
 }
 static void log_me_bt__(const char* text, ...) {
     char* tt = with_time(text);
-    va_list vlist;
-    va_start(vlist, text);
-    l(tt, BLUE, vlist);
-    va_end(vlist);
-    free(tt);
+    tt = tt ? tt : text;
+    va_list valist_list;
+    va_start(valist_list, text);
+    l(tt, BLUE, valist_list);
+    va_end(valist_list);
+    tt == text ? 0 : free(tt);
 }
 
-struct LogMe LogMe = { 
+const struct LogMe LogMe = { 
     log_me_i__, 
     log_me_w__, 
     log_me_e__, 
