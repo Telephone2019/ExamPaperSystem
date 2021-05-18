@@ -373,7 +373,11 @@ char* substr(const char* substr_start, const char* substr_end) {
 	return res;
 }
 
-string_list split(const char* str, char delimiter, int first_n) {
+string_list splitf(const char* str, char delimiter, int first_n) {
+
+}
+
+string_list splitt(const char* str, char delimiter, int total_n) {
 
 }
 
