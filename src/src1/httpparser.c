@@ -43,6 +43,9 @@ extern "C" {
 #include "vutils.h"
 #include "vlist.h"
 
+#define vmax(a, b) ((a)>(b)?(a):(b))
+#define vmin(a, b) ((a)<(b)?(a):(b))
+
 static long long last_index_of_str(const char* s, const char* pattern, long long before_index
 
 #ifdef CASE_INSENSITIVE_STRSTR
@@ -542,6 +545,31 @@ static int url_cb(llhttp_t* parser, const char* at, size_t length) {
 		return -1;
 	}
 	memcpy(message->url, at, length);
+	const char* question_mark = strstr(message->url, "?");
+	const char* number_sign_after_index = message->url;
+	if (question_mark)
+	{
+		number_sign_after_index = question_mark;
+	}
+	const char* number_sign = strstr(number_sign_after_index, "#");
+	const char* path_end = question_mark&&number_sign?vmin(question_mark, number_sign):(question_mark?question_mark:number_sign);
+	const char* query_end = number_sign;
+	message->path = substr(message->url, path_end);
+	if (!message->path)
+	{
+		message->malloc_success = 0;
+		return -1;
+	}
+	if (question_mark && *(question_mark+1) && *(question_mark+1)!='#')
+	{
+		message->query_string = make_vlist(sizeof(KeyValuePair));
+		if (!message->query_string)
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
+
+	}
 	return 0;
 }
 static int status_cb(llhttp_t* parser, const char* at, size_t length) {

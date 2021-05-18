@@ -8,6 +8,7 @@ extern "C" {
 #include <stddef.h>
 
 #include "macros.h"
+#include "vlist.h"
 
 typedef struct UrlMeta {
 	int valid;
@@ -34,6 +35,10 @@ char* vstrstr(const char* haystack, const char* needle, int case_sensitive, int*
 int vstrcmp(const char* s1, const char* s2, int case_sensitive, int* success);
 
 UrlMeta parse_url(const char* url);
+
+char* substr(const char* substr_start, const char* substr_end);
+
+typedef vlist string_list;
 
 #ifdef LOGME_WINDOWS
 #include <uchar.h>

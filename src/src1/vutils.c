@@ -146,6 +146,8 @@ char* vstrstr(const char* haystack, const char* needle, int case_sensitive, int 
 		if (!haystack_m || !needle_m)
 		{
 			*success = 0;
+			free(haystack_m); haystack_m = NULL;
+			free(needle_m); needle_m = NULL;
 			return NULL;
 		}
 		memcpy(haystack_m, haystack, strlen(haystack));
@@ -184,6 +186,8 @@ int vstrcmp(const char* s1, const char* s2, int case_sensitive, int* success) {
 		if (!s1m || !s2m)
 		{
 			*success = 0;
+			free(s1m); s1m = NULL;
+			free(s2m); s2m = NULL;
 			return -1;
 		}
 		memcpy(s1m, s1, strlen(s1));
@@ -348,6 +352,29 @@ UrlMeta parse_url(const char* url) {
 		res.valid = 0;
 		return res;
 	}
+}
+
+char* substr(const char* substr_start, const char* substr_end) {
+	long sub_len = 0;
+	const char* current_ptr = substr_start;
+	while (
+		substr_end?
+		current_ptr < substr_end:
+		*current_ptr
+		) {
+		sub_len++;
+		current_ptr++;
+	}
+	char* res = zero_malloc(sub_len + 1);
+	if (res)
+	{
+		memcpy(res, substr_start, sub_len);
+	}
+	return res;
+}
+
+string_list split(const char* str, char delimiter, int first_n) {
+
 }
 
 #ifdef LOGME_WINDOWS
