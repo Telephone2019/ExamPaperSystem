@@ -6,21 +6,41 @@ extern "C" {
 #include <stdio.h>
 
 DllExport LRESULT CALLBACK KBHOOK_KeyboardProc____(int nCode, WPARAM wParam, LPARAM lParam) {
-	if (nCode < 0) {
+	/* from offical document */
+	if (nCode < 0 || nCode != HC_ACTION) { // do not process message
 		return CallNextHookEx(NULL, nCode, wParam, lParam);
 	}
-	else
+	/* from offical document */
+
+	int _EatKeystroke = 0;
+	KBDLLHOOKSTRUCT* p = (KBDLLHOOKSTRUCT*)lParam;
+	switch (wParam)
 	{
-		printf("vk = %llX\n", wParam);
-		if (1)
-		{
-			return 0;
-		}
-		else
-		{
-			return CallNextHookEx(NULL, nCode, wParam, lParam);
-		}
+	case WM_KEYDOWN:
+	case WM_SYSKEYDOWN:
+	case WM_KEYUP:
+	case WM_SYSKEYUP:
+		// the most significant bit indicates whether the key is currently up or down
+		int bCtrlKeyDown =
+			GetAsyncKeyState(VK_CONTROL) >> ((sizeof(SHORT) * 8) - 1);
+		_EatKeystroke = (
+			(p->vkCode == VK_LWIN) 
+			|| (p->vkCode == VK_RWIN)
+			|| (p->flags & LLKHF_ALTDOWN)
+			|| (p->vkCode == VK_ESCAPE && p->flags & LLKHF_ALTDOWN)
+			|| (p->vkCode == VK_ESCAPE && bCtrlKeyDown) // ctrl + esc
+			);
+		break;
+	default:
+		break;
 	}
+
+	if (_EatKeystroke) {
+		/* from offical document */
+		return 1;
+		/* from offical document */
+	}
+	else return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
 DllExport void UninstallHook(HANDLE hook, HANDLE* hookaddr, HANDLE shareobj, HANDLE* shareobj_addr) {
