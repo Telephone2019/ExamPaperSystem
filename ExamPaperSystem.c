@@ -85,7 +85,7 @@ int main()
     InstallHook(&hook_success, &hook, &sharedobj);
     if (hook_success) {
         LogMe.i("HOOK INSTALL SUCCESS!");
-        Sleep(1000000);
+        Sleep(15000);
         UninstallHook(hook, &hook, sharedobj, &sharedobj);
         LogMe.w("HOOK UNINSTALLED");
     }
