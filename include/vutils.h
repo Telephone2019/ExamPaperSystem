@@ -40,6 +40,15 @@ char* substr(const char* substr_start, const char* substr_end);
 
 typedef vlist string_list;
 
+typedef struct vstring {
+	VLISTNODE
+	char* const str;
+}vstring;
+
+string_list splitf(const char* str, char delimiter, int first_n);
+string_list splitt(const char* str, char delimiter, int total_n);
+void delete_string_list(string_list list, string_list* list_addr);
+
 #ifdef LOGME_WINDOWS
 #include <uchar.h>
 int test_wide_char_num_of_utf8_including_wide_null(const char *utf8str);
