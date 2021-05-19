@@ -24,6 +24,53 @@ int my_run(vlist this, long i, void* extra) {
     return i > 8;
 }
 
+int get_paper(HttpMessage* hmsg, HttpHandlerPac* hpac) {
+    if (
+        send_file(
+            hpac->node,
+            "D:\\同步盘\\Documents\\各种标准文档\\C++17官方标准文档Plus\\ISOIEC 14882 2017.pdf",
+            0,
+            MIME_TYPE_PDF,
+            HTTP_CHARSET_UTF8,
+            1,
+            "paper1.pdf"
+        ) < 0
+        ) {
+        LogMe.et("get_paper() send failed");
+        return -98;
+    }
+    return INT_MAX;
+}
+
+const char* url_path_patterns[] = {
+    "/paper"
+};
+
+HTTP_HANDLE_FUNC_TYPE* procs[] = {
+    get_paper
+};
+
+void* extras[] = {
+    NULL
+};
+
+int generate_http_handlers(vlist hlist) {
+    int path_num = sizeof(url_path_patterns) / sizeof(const char*);
+    for (int i = 0; i < path_num; i++)
+    {
+        HttpHandler* hhd = zero_malloc(sizeof(HttpHandler));
+        if (!hhd)
+        {
+            return 0;
+        }
+        hlist->quick_add(hlist, hhd);
+        hhd->path_contains = url_path_patterns[i];
+        hhd->handle_func = procs[i];
+        hhd->extra = extras[i];
+    }
+    return 1;
+}
+
 int main()
 {
 
@@ -93,7 +140,16 @@ int main()
         LogMe.e("HOOK INSTALL FAIL!");
     }
 #endif // TEST_HOOK
-    tcp_server_run(23456, 1);
+    vlist handlers = make_vlist(sizeof(HttpHandler));
+    if (!handlers || !generate_http_handlers(handlers))
+    {
+        malloc_fail:
+        delete_vlist(handlers, &handlers);
+        LogMe.et("Malloc failed when generating HTTP handlers");
+        return -1;
+    }
+    tcp_server_run(23456, 1, handlers);
+    delete_vlist(handlers, &handlers);
 #endif // LOGME_WINDOWS
 
     return 0;

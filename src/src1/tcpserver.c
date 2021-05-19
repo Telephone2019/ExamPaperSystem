@@ -1,13 +1,16 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include "tcpserver.h"
 
-#include <logme.h>
-#include <vutils.h>
-#include <vlist.h>
-#include <httputils.h>
-#include <httpparser.h>
+#include "logme.h"
+#include "vutils.h"
+#include "vlist.h"
+#include "httputils.h"
+#include "httpparser.h"
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -17,15 +20,10 @@
 #include <ntstatus.h>
 #include <bcrypt.h>
 #include <time.h>
+#include <limits.h>
 
 #define DEFAULT_RECV_TIMEOUT_S 15
 #define DEFAULT_SEND_TIMEOUT_S 15
-
-#define MIME_TYPE_HTML "text/html"
-#define MIME_TYPE_BIN "application/octet-stream"
-#define MIME_TYPE_JPEG "image/jpeg"
-
-#define HTTP_CHARSET_UTF8 "utf-8"
 
 #define HTML_200 "<html>\n"\
 "<body>\n"\
@@ -108,6 +106,20 @@
 #define REASON_PHRASE_404 "Not Found"
 #define REASON_PHRASE_500 "Internal Server Error"
 
+typedef struct tcp_node {
+	VLISTNODE
+		HANDLE handle;
+	DWORD tid;
+	SOCKET socket;
+	int open;
+	long recv_timeout_s;
+	long send_timeout_s;
+} tcp_node;
+typedef tcp_node node;
+typedef struct file_handle {
+	HANDLE handle;
+} file_handle;
+
 static int init_winsock() {
 	WSADATA wsaData;
 
@@ -123,18 +135,9 @@ static int init_winsock() {
 	return iResult;
 }
 
-typedef struct node {
-	VLISTNODE
-		HANDLE handle;
-	DWORD tid;
-	SOCKET socket;
-	int open;
-	long recv_timeout_s;
-	long send_timeout_s;
-} node;
-
 typedef struct params {
 	node* node_p;
+	vlist http_handlers;
 } params;
 
 typedef struct tcp_server {
@@ -183,15 +186,14 @@ static char16_t *get_utf_16_file_name_from_utf8(const char* u8fn) {
 	return w_fn;
 }
 
-// 获取文件句柄（只读），返回 NULL 表示失败，否则返回指定文件的句柄
-static HANDLE get_file_hd(const char *filename) {
+file_handle get_file_hd(const char *filename) {
 	const char* prefix = "\\\\?\\";
 	const char* suffix = "";
 	char* fn_temp = zero_malloc(strlen(filename) + strlen(prefix) + strlen(suffix) + 1);
 	if (fn_temp == NULL)
 	{
 		LogMe.et("Open file [ %s ] failed with error: Malloc Fail", filename);
-		return NULL;
+		return (file_handle) { .handle = NULL };
 	}
 	strcat(fn_temp, prefix);
 	strcat(fn_temp, filename);
@@ -201,7 +203,7 @@ static HANDLE get_file_hd(const char *filename) {
 	if (wide_filename == NULL)
 	{
 		LogMe.et("Open file [ %s ] failed with error: Malloc Fail", filename);
-		return NULL;
+		return (file_handle){.handle=NULL};
 	}
 	HANDLE res = CreateFileW(
 		wide_filename,
@@ -217,11 +219,11 @@ static HANDLE get_file_hd(const char *filename) {
 	{
 		DWORD last_err = GetLastError();
 		LogMe.et("Open file [ %s ] failed with error: %lu", filename, last_err);
-		return NULL;
+		return (file_handle) { .handle = NULL };
 	}
 	else
 	{
-		return res;
+		return (file_handle) { .handle = res };
 	}
 }
 
@@ -282,9 +284,7 @@ static int error_shutdown(node* cnt_p, params* params_p, int returned) {
 	return clean_up_connection(cnt_p, params_p, returned);
 }
 
-// 此函数会将 node 结构体中的 socket 设置为阻塞模式，并设置读取超时时间为 node 结构体中的相应字段，然后调用 recv() 并返回 recv() 的返回值
-// 此函数的日志输出是完备的
-static int recv_t(node *np, char *buf, int len, int flags) {
+int recv_t(tcp_node *np, char *buf, int len, int flags) {
 	ioctlsocket(np->socket, FIONBIO, &((u_long) {0})); // 0:blocking 1:non-blocking
 	setsockopt(np->socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&((DWORD) { ((DWORD)(np->recv_timeout_s))*1000 }), sizeof(DWORD));
 	int r_res = recv(np->socket, buf, len, flags);
@@ -304,10 +304,7 @@ static int recv_t(node *np, char *buf, int len, int flags) {
 	return r_res;
 }
 
-// 此函数会将 node 结构体中的 socket 设置为阻塞模式，并设置发送超时时间为 node 结构体中的相应字段，然后调用 send() 并返回 send() 的返回值
-// 调用 send() 的 len 参数和返回值会被打印到日志中
-// 如果 send() 返回错误，错误信息会被打印到日志中
-static int send_t(node *np, const char *buf, int len, int flags) {
+int send_t(tcp_node *np, const char *buf, int len, int flags) {
 	ioctlsocket(np->socket, FIONBIO, &((u_long) { 0 })); // 0:blocking 1:non-blocking
 	setsockopt(np->socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&((DWORD) { ((DWORD)(np->send_timeout_s)) * 1000 }), sizeof(DWORD));
 	int s_res = send(np->socket, buf, len, flags);
@@ -360,13 +357,7 @@ static int transmit_file(node* np, HANDLE hFile, unsigned long long file_size, c
 	return 0;
 }
 
-// 此函数调用 send_t() 向客户端回复文本请求。
-// keep_alive 参数仅仅用于生成回复报文字段，实际断开连接需要调用者手动进行。
-// 返回值：
-// 0 : 回复成功
-// non-zero : 回复失败，不应再进行更多的 socket 操作，应尽快断开并清理连接
-// 此函数的日志输出是完备的。若失败，查看日志以获取详细信息。
-static int send_text(node* np, int status_code, const char * reason_phrase, int keep_alive, const char* text_body_str_could_be_NULL, const char* MIME_type, const char *text_body_charset, int is_download, const char *download_filename) {
+int send_text(tcp_node* np, int status_code, const char * reason_phrase, int keep_alive, const char* text_body_str_could_be_NULL, const char* MIME_type, const char *text_body_charset, int is_download, const char *download_filename) {
 	char resp[5000];
 	http_response(
 		resp,
@@ -392,21 +383,9 @@ static int send_text(node* np, int status_code, const char * reason_phrase, int 
 	}
 }
 
-// 此函数调用 send_t() 和 transmit_file() 向客户端回复文件请求：
-// 如果打开文件句柄成功且成功获取文件大小，那么传输文件；
-// 如果打开文件句柄成功但获取文件大小失败，回复 500 页面；
-// 如果打开文件句柄失败，回复 404 页面。
-// 若失败，查看日志以获取详细信息。
-// keep_alive 参数仅仅用于生成回复报文字段，实际断开连接需要调用者手动进行。
-// 返回值：（大于等于 0 表示没有连接错误发生，小于 0 表示发生了连接错误）
-// 0 : 文件传输成功
-// 1 : 回复 404 成功
-// 2 : 回复 500 成功
-// -1 : 回复或传输文件时失败，不应再进行更多的 socket 操作，应尽快断开并清理连接
-// 此函数的日志输出是完备的。
-static int send_file(node* np, const char* filename, int keep_alive, const char *MIME_type, const char *file_charset, int is_download, const char *download_filename) {
+int send_file(tcp_node* np, const char* filename, int keep_alive, const char *MIME_type, const char *file_charset, int is_download, const char *download_filename) {
 	char resp[5000];
-	HANDLE hFile = get_file_hd(filename);
+	HANDLE hFile = get_file_hd(filename).handle;
 	if (hFile == NULL) {
 		LogMe.et("send_file() [socket = %p ] [file = \"%s\" ] could not get file handle", np->socket, filename);
 		return send_text(
@@ -484,9 +463,31 @@ static int printHttpHeader(vlist this_vlist, long i, void* extra) {
 	return 0; // go on
 }
 
+typedef struct max_contains {
+	size_t pattern_str_len;
+	long index;
+	const char* path;
+} max_contains;
+
+static int testPattern(vlist this_vlist, long i, void* extra) {
+	max_contains* mp = extra;
+	HttpHandler* hhandler = this_vlist->get(this_vlist, i);
+	if (hhandler->path_contains && strlen(hhandler->path_contains)>0 && strstr(mp->path, hhandler->path_contains) == mp->path) // "starts with"
+	{
+		size_t pattern_str_len = strlen(hhandler->path_contains);
+		if (mp->index < 0 || pattern_str_len >= mp->pattern_str_len)
+		{
+			mp->index = i; mp->pattern_str_len = pattern_str_len;
+		}
+	}
+	return 0; // go on
+}
+
 static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
-	node* np = (*((params*)params_p)).node_p;
+	params* pp = params_p;
+	node* np = pp->node_p;
 	generator_params gp = { .np = np };
+	vlist http_handlers = pp->http_handlers;
 
 	while (1)
 	{
@@ -558,67 +559,106 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 					LogMe.w("HTTP header list:");
 					if (hmsg.http_headers)
 						hmsg.http_headers->foreach(hmsg.http_headers, printHttpHeader, NULL);
-					long content_length_f = hmsg.content_length;
-					long content_length = hmsg.content_length;
-					freeHttpMessage(&hmsg);
-					long recved_content_length = 0;
-					char content[5096] = { 0 };
-					// recv content
-					while (content_length > 0)
+					int handled = 0;
+					int handled_error = 1;
+					if (http_handlers)
 					{
-						long r_len = content_length > 1024 ? 1024 : content_length;
-						content_length -= r_len;
-						char temp[1024] = { 0 };
-						int r_res = recv_t(np, temp, r_len, 0);
-						if (r_res == 0) {
-							// recv 0 this time
-							break;
-						}
-						else if (r_res == r_len)
+						max_contains mc = {
+							.index = -1,
+							.pattern_str_len = -1,
+							.path = hmsg.path
+						};
+						http_handlers->foreach(http_handlers, testPattern, &mc);
+						if (mc.index >= 0)
 						{
-							if (recved_content_length + r_res < 5096)
-							{
-								memcpy(content + recved_content_length, temp, r_res);
-							}
-							recved_content_length += r_res;
+							handled = 1;
+							HttpHandler* hdr = http_handlers->get(http_handlers, mc.index);
+							HttpHandlerPac hpac = {
+								.extra = hdr->extra,
+								.node = np
+							};
+							handled_error = ((HTTP_HANDLE_FUNC_TYPE*)hdr->handle_func)(&hmsg, &hpac);
 						}
-						else if (r_res > 0)
+					}
+					if (!handled)
+					{
+						long content_length_f = hmsg.content_length;
+						long content_length = hmsg.content_length;
+						freeHttpMessage(&hmsg);
+						long recved_content_length = 0;
+						char content[5096] = { 0 };
+						// recv content
+						while (content_length > 0)
 						{
-							// recv a part this time
-							if (recved_content_length + r_res < 5096)
-							{
-								memcpy(content + recved_content_length, temp, r_res);
+							long r_len = content_length > 1024 ? 1024 : content_length;
+							content_length -= r_len;
+							char temp[1024] = { 0 };
+							int r_res = recv_t(np, temp, r_len, 0);
+							if (r_res == 0) {
+								// recv 0 this time
+								break;
 							}
-							recved_content_length += r_res;
-							break;
+							else if (r_res == r_len)
+							{
+								if (recved_content_length + r_res < 5096)
+								{
+									memcpy(content + recved_content_length, temp, r_res);
+								}
+								recved_content_length += r_res;
+							}
+							else if (r_res > 0)
+							{
+								// recv a part this time
+								if (recved_content_length + r_res < 5096)
+								{
+									memcpy(content + recved_content_length, temp, r_res);
+								}
+								recved_content_length += r_res;
+								break;
+							}
+							else {
+								free(message); message = NULL;
+								return error_shutdown(np, params_p, 14);
+							}
 						}
-						else {
+						if (content_length_f > 0)
+						{
+							LogMe.it("[ HTTP Content From Socket %p ] length = %ld | received length = %ld", np->socket, content_length_f, recved_content_length);
+							LogMe.n("%s", content);
+						}
+						// response 200 then go on
+						if (
+							send_text(
+								np,
+								200,
+								REASON_PHRASE_200,
+								1,
+								HTML_200,
+								MIME_TYPE_HTML,
+								HTTP_CHARSET_UTF8,
+								0,
+								NULL
+							) != 0
+							)
+						{
 							free(message); message = NULL;
-							return error_shutdown(np, params_p, 14);
+							return error_shutdown(np, params_p, 8);
 						}
 					}
-					if (content_length_f > 0)
+					else
 					{
-						LogMe.it("[ HTTP Content From Socket %p ] length = %ld | received length = %ld", np->socket, content_length_f, recved_content_length);
-						LogMe.n("%s", content);
-					}
-					// response 200 then go on
-					if (
-						send_text(
-							np,
-							200,
-							REASON_PHRASE_200,
-							1,
-							HTML_200,
-							MIME_TYPE_HTML,
-							HTTP_CHARSET_UTF8,
-							0,
-							NULL
-						) != 0
-						)
-					{
-						free(message); message = NULL;
-						return error_shutdown(np, params_p, 8);
+						if (handled_error < 0)
+						{
+							return error_shutdown(np, params_p, handled_error);
+						}
+						else if (handled_error == 0)
+						{
+							return recv_0_shutdown(np, params_p, 999);
+						}
+						else if (handled_error == INT_MAX)
+						{
+							return active_shutdown(np, params_p, 9999);
+						}
 					}
 				}
 			}
@@ -765,7 +805,7 @@ static void print_addrinfo_list(struct addrinfo *result) {
 	}
 }
 
-void tcp_server_run(int port, int memmory_lack) {
+void tcp_server_run(int port, int memmory_lack, vlist http_handlers) {
 	const char* exit_words = "tcp server exited";
 	const char* hello_words = "tcp server started";
 	const long max_cnt_list_size = memmory_lack ? 6 : 2000;
@@ -927,6 +967,7 @@ void tcp_server_run(int port, int memmory_lack) {
 		np->send_timeout_s = DEFAULT_SEND_TIMEOUT_S;
 		np->open = 1;
 		pp->node_p = np;
+		pp->http_handlers = http_handlers;
 		server.connections_list->quick_add(server.connections_list, np);
 		LogMe.wt("Connection thread [tid = %lu ] [client socket = %p ] start.", np->tid, np->socket);
 		ResumeThread(np->handle);
@@ -976,3 +1017,8 @@ void tcp_server_run(int port, int memmory_lack) {
 	WSACleanup();
 	LogMe.et(exit_words);
 }
+
+
+#ifdef __cplusplus
+}
+#endif

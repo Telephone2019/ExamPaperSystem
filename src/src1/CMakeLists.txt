@@ -48,6 +48,7 @@ target_link_libraries(HttpParser PUBLIC VList)
 target_link_libraries(HttpParser PRIVATE Shlwapi)
 
 # 仅适用于 windows 平台
-target_link_libraries(TCPServer PRIVATE LogMe Ws2_32 VUtils VList Mswsock HttpUtils HttpParser)
+target_link_libraries(TCPServer PRIVATE LogMe Ws2_32 VUtils Mswsock HttpUtils)
+target_link_libraries(TCPServer PUBLIC HttpParser VList)
 
 ##########################################################################################################
