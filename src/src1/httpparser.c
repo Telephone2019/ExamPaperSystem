@@ -535,6 +535,40 @@ void freeHttpMessage(HttpMessage* httpmsg) {
 	}
 	free(httpmsg->location); httpmsg->location = NULL;
 }
+static int make_kv(vlist this_vlist, long i, void* extra) {
+	vlist kv_list = extra;
+	char* str = ((vstring*)(this_vlist->get(this_vlist, i)))->str;
+	string_list kv = splitt(str, NULL, '=', 2);
+	if (!kv || (kv->size != 1 && kv->size != 2))
+	{
+		delete_string_list(kv, &kv);
+		return -1; //break
+	}
+	KeyValuePair* kv_pair = zero_malloc(sizeof(KeyValuePair));
+	if (!kv_pair)
+	{
+		delete_string_list(kv, &kv);
+		return -1; //break
+	}
+	kv_list->quick_add(kv_list, kv_pair);
+	// hacker but efficient
+	kv_pair->field = *(char**)&((vstring*)(kv->get(kv, 0)))->str; *(char**)&((vstring*)(kv->get(kv, 0)))->str = NULL;
+	if (kv->size == 2)
+	{
+		kv_pair->value = *(char**)&((vstring*)(kv->get(kv, 1)))->str; *(char**)&((vstring*)(kv->get(kv, 1)))->str = NULL;
+	}
+	else
+	{
+		kv_pair->value = zero_malloc(1);
+		if (!kv_pair->value)
+		{
+			delete_string_list(kv, &kv);
+			return -1; //break
+		}
+	}
+	delete_string_list(kv, &kv);
+	return 0; // go on
+}
 static int url_cb(llhttp_t* parser, const char* at, size_t length) {
 	HttpMessage* message = (HttpMessage*)parser->data;
 	message->method = httpMethodFromStr(llhttp_method_name(parser->method));
@@ -568,7 +602,41 @@ static int url_cb(llhttp_t* parser, const char* at, size_t length) {
 			message->malloc_success = 0;
 			return -1;
 		}
-
+		string_list query_list = splitf(question_mark + 1, number_sign, '&', 0);
+		if (!query_list)
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
+		int res = query_list->foreach(query_list, make_kv, message->query_string);
+		delete_string_list(query_list, &query_list);
+		if (res)
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
+	}
+	if (number_sign && *(number_sign + 1))
+	{
+		message->url_fragment = make_vlist(sizeof(KeyValuePair));
+		if (!message->url_fragment)
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
+		string_list fragment_list = splitf(number_sign + 1, NULL, '&', 0);
+		if (!fragment_list)
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
+		int res = fragment_list->foreach(fragment_list, make_kv, message->url_fragment);
+		delete_string_list(fragment_list, &fragment_list);
+		if (res)
+		{
+			message->malloc_success = 0;
+			return -1;
+		}
 	}
 	return 0;
 }

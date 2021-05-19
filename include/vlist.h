@@ -28,8 +28,8 @@ typedef void VLIST_QUICK_ADD_FUNC_TYPE(vlist this_vlist, void* node);
 typedef int VLIST_INSERT_FUNC_TYPE(vlist this_vlist, long index, const void* node);
 typedef int VLIST_QUICK_INSERT_FUNC_TYPE(vlist this_vlist, long index, void* node);
 typedef int VLIST_REMOVE_FUNC_TYPE(vlist this_vlist, long index);
-typedef void VLIST_FOREACH_FUNC_TYPE(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra);
-typedef void VLIST_FOREACH_REVERSE_FUNC_TYPE(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra);
+typedef int VLIST_FOREACH_FUNC_TYPE(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra);
+typedef int VLIST_FOREACH_REVERSE_FUNC_TYPE(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra);
 typedef long VLIST_FLUSH_FUNC_TYPE(vlist this_vlist, VLIST_FILTER_FUNC_TYPE* filter, void* extra);
 typedef void VLIST_CLEAR_FUNC_TYPE(vlist this_vlist);
 
@@ -63,8 +63,8 @@ void vlist_quick_add(vlist this_vlist, void* node);
 int vlist_insert(vlist this_vlist, long index, const void* node);
 int vlist_quick_insert(vlist this_vlist, long index, void* node);
 int vlist_remove(vlist this_vlist, long index);
-void vlist_foreach(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra);
-void vlist_foreach_reverse(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra);
+int vlist_foreach(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra);
+int vlist_foreach_reverse(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra);
 long vlist_flush(vlist this_vlist, VLIST_FILTER_FUNC_TYPE* filter, void* extra);
 void vlist_clear(vlist this_vlist);
 

@@ -27,7 +27,78 @@
 
 #define HTTP_CHARSET_UTF8 "utf-8"
 
-#define HTML_200 "<html>\n<body>\n<h1>Great! 非常棒！</h1>\n</body>\n</html>\n"
+#define HTML_200 "<html>\n"\
+"<body>\n"\
+"<h1>Great! 非常棒！</h1>\n"\
+"<div name=\"hw\" id=\"hw\">\n"\
+"<a href=\"/?#end\">Click here to test url fragment!(Jump to the end)</a>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"<h1>Hello, world!</h1>\n"\
+"</div>\n"\
+"<div name=\"end\" id=\"end\">\n"\
+"<a href=\"/?#hw\">Click here to test url fragment!(Jump to hello,world)</a>\n"\
+"</div>\n"\
+"</body>\n"\
+"</html>\n"
 #define HTML_400 "<html>\n<body>\n<h1>Bad Request 这是一个糟糕的请求</h1>\n</body>\n</html>\n"
 #define HTML_404 "<html>\n<body>\n<h1>File Not Found 文件找不到</h1>\n</body>\n</html>\n"
 #define HTML_500 "<html>\n<body>\n<h1>Internal Server Error 服务器内部发生了错误</h1>\n</body>\n</html>\n"
@@ -478,7 +549,15 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 				else
 				{
 					LogMe.bt("[ Parsed HTTP Message From Socket %p ] HTTP/%d.%d %s %s %ld", np->socket, hmsg.http_major, hmsg.http_minor, hmsg.url, getConstHttpMethodNameStr(hmsg.method), hmsg.content_length);
-					hmsg.http_headers->foreach(hmsg.http_headers, printHttpHeader, NULL);
+					LogMe.w("query string list:");
+					if (hmsg.query_string)
+						hmsg.query_string->foreach(hmsg.query_string, printHttpHeader, NULL);
+					LogMe.w("fragment list:");
+					if (hmsg.url_fragment)
+						hmsg.url_fragment->foreach(hmsg.url_fragment, printHttpHeader, NULL);
+					LogMe.w("HTTP header list:");
+					if (hmsg.http_headers)
+						hmsg.http_headers->foreach(hmsg.http_headers, printHttpHeader, NULL);
 					long content_length_f = hmsg.content_length;
 					long content_length = hmsg.content_length;
 					freeHttpMessage(&hmsg);

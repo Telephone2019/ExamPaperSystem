@@ -128,21 +128,25 @@ int vlist_remove(vlist this_vlist, long index) {
     }
     return 0;
 }
-void vlist_foreach(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra) {
+int vlist_foreach(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra) {
+    int res = 0;
     for (long i = 0; i < this_vlist->size; i++)
     {
-        if (run(this_vlist, i, extra) != 0) {
+        if ((res=run(this_vlist, i, extra)) != 0) {
             break;
         }
     }
+    return res;
 }
-void vlist_foreach_reverse(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra) {
+int vlist_foreach_reverse(vlist this_vlist, VLIST_RUNNABLE_FUNC_TYPE* run, void* extra) {
+    int res = 0;
     for (long i = this_vlist->size - 1; i >= 0; i--)
     {
-        if (run(this_vlist, i, extra) != 0) {
+        if ((res=run(this_vlist, i, extra)) != 0) {
             break;
         }
     }
+    return res;
 }
 long vlist_flush(vlist this_vlist, VLIST_FILTER_FUNC_TYPE* filter, void* extra) {
     long flushed = 0;

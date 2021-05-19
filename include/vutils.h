@@ -45,8 +45,8 @@ typedef struct vstring {
 	char* const str;
 }vstring;
 
-string_list splitf(const char* str, char delimiter, int first_n);
-string_list splitt(const char* str, char delimiter, int total_n);
+string_list splitf(const char* str, const char* str_end, char delimiter, int first_n);
+string_list splitt(const char* str, const char* str_end, char delimiter, int total_n);
 void delete_string_list(string_list list, string_list* list_addr);
 
 #ifdef LOGME_WINDOWS

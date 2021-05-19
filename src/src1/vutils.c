@@ -374,19 +374,27 @@ char* substr(const char* substr_start, const char* substr_end) {
 }
 
 static int clear_vstring(vlist this_vlist, long i, void* extra) {
-	free(((vstring*)this_vlist->get(this_vlist, i))->str); (void*)(((vstring*)this_vlist->get(this_vlist, i))->str) = NULL;
+	free(((vstring*)this_vlist->get(this_vlist, i))->str); *(char**)&((vstring*)this_vlist->get(this_vlist, i))->str = NULL;
 	return 0; // go on
 }
 
-string_list splitf(const char* str, char delimiter, int first_n) {
+string_list splitf(const char* str, const char *str_end, char delimiter, int first_n) {
+	if (first_n < 0)
+	{
+		return NULL;
+	}
 	string_list p = make_vlist(sizeof(vstring));
 	if (!p) {
 		return NULL;
 	}
-	size_t de_start_pos, de_end_pos = 0;
+	size_t de_start_pos = 0, de_end_pos = 0;
 	size_t c_str_len = strlen(str);
+	if (str_end)
+	{
+		c_str_len = vmin(c_str_len, str_end - str);
+	}
 	for (size_t i = 0; i <= c_str_len && (!first_n || p->size < first_n); i++) {
-		if (str[i] == delimiter || str[i] == '\0') {
+		if (str[i] == delimiter || !str[i] || i==c_str_len) {
 			de_end_pos = i;
 			vstring* q = zero_malloc(sizeof(vstring));
 			if (!q) {
@@ -396,7 +404,7 @@ string_list splitf(const char* str, char delimiter, int first_n) {
 				return NULL;
 			}
 			p->quick_add(p, q);
-			(void*)q->str = zero_malloc(sizeof(char) * (de_end_pos + 1 - de_start_pos));
+			*(char**)&q->str = zero_malloc(sizeof(char) * (de_end_pos + 1 - de_start_pos));
 			if (!q->str) {
 				goto malloc_fail;
 			}
@@ -407,18 +415,26 @@ string_list splitf(const char* str, char delimiter, int first_n) {
 	return p;
 }
 
-string_list splitt(const char* str, char delimiter, int total_n) {
+string_list splitt(const char* str, const char* str_end, char delimiter, int total_n) {
+	if (total_n < 0)
+	{
+		return NULL;
+	}
 	string_list p = make_vlist(sizeof(vstring));
 	if (!p) {
 		return NULL;
 	}
-	size_t de_start_pos, de_end_pos = 0;
+	size_t de_start_pos = 0, de_end_pos = 0;
 	size_t c_str_len = strlen(str);
+	if (str_end)
+	{
+		c_str_len = vmin(c_str_len, str_end - str);
+	}
 	for (size_t i = 0; i <= c_str_len && (!total_n || p->size < total_n); i++) {
 		if ( (
 				(!total_n || p->size < total_n-1) && 
 				str[i] == delimiter
-			) || str[i] == '\0') {
+			) || !str[i] || i == c_str_len) {
 			de_end_pos = i;
 			vstring* q = zero_malloc(sizeof(vstring));
 			if (!q) {
@@ -428,7 +444,7 @@ string_list splitt(const char* str, char delimiter, int total_n) {
 				return NULL;
 			}
 			p->quick_add(p, q);
-			(void*)q->str = zero_malloc(sizeof(char) * (de_end_pos + 1 - de_start_pos));
+			*(char**)&q->str = zero_malloc(sizeof(char) * (de_end_pos + 1 - de_start_pos));
 			if (!q->str) {
 				goto malloc_fail;
 			}
