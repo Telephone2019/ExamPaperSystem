@@ -406,7 +406,11 @@ int receive_file(tcp_node* np, const char* file_dir, const char* filename, int k
 		LogMe.et("receive_file() [socket = %p ] [file = \"%s\" ] file_size = %lld , error!", np->socket, filename, file_size);
 		goto handle_500;
 	}
-	if ((file_dir[fdstrlen-1] != '\\') || filename[0] == '\\' || filename[0] == '/' || filename[0] == '.' || file_dir[0] == '.')
+	if (file_dir[fdstrlen-1] != '\\' || filename[0] == '\\' || filename[0] == '/')
+	{
+		goto handle_open_fail;
+	}
+	if (str_contain_relative_path(file_dir) || str_contain_relative_path(filename))
 	{
 		goto handle_open_fail;
 	}
