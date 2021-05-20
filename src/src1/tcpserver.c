@@ -11,6 +11,7 @@ extern "C" {
 #include "vlist.h"
 #include "httputils.h"
 #include "httpparser.h"
+#include "macros.h"
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -405,7 +406,7 @@ int receive_file(tcp_node* np, const char* file_dir, const char* filename, int k
 		LogMe.et("receive_file() [socket = %p ] [file = \"%s\" ] file_size = %lld , error!", np->socket, filename, file_size);
 		goto handle_500;
 	}
-	if ((file_dir[fdstrlen-1] != '\\') || filename[0] == '\\' || filename[0] == '/' || filename[0] == '.')
+	if ((file_dir[fdstrlen-1] != '\\') || filename[0] == '\\' || filename[0] == '/' || filename[0] == '.' || file_dir[0] == '.')
 	{
 		goto handle_open_fail;
 	}
@@ -414,6 +415,19 @@ int receive_file(tcp_node* np, const char* file_dir, const char* filename, int k
 	{
 		goto handle_open_fail;
 	}
+#ifdef V_WINDOWS
+	const char* mkdir = "mkdir ";
+	char* mkdir_cmd = zero_malloc(strlen(mkdir)+fdstrlen+1);
+	if (!mkdir_cmd)
+	{
+		free(combined_path); combined_path = NULL;
+		goto handle_open_fail;
+	}
+	strcat(mkdir_cmd, mkdir);
+	strcat(mkdir_cmd, file_dir);
+	system(mkdir_cmd);
+	free(mkdir_cmd); mkdir_cmd = NULL;
+#endif // V_WINDOWS
 	strcat(combined_path, file_dir);
 	strcat(combined_path, filename);
 	HANDLE hFile = get_file_hd(combined_path, 0).handle;

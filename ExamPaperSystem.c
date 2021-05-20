@@ -140,6 +140,7 @@ int get_exam_id(int position) {
     }
 }
 
+// do not return relative path!
 const char *get_exam_dir(int position) {
     if (position & 1)
     {
