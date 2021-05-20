@@ -578,6 +578,8 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 								.node = np
 							};
 							handled_error = ((HTTP_HANDLE_FUNC_TYPE*)hdr->handle_func)(&hmsg, &hpac);
+							freeHttpMessage(&hmsg);
+							free(message); message = NULL;
 						}
 					}
 					if (!handled)
