@@ -58,6 +58,8 @@ void delete_string_list(string_list list, string_list* list_addr);
 // non-zero: success
 int v_local_time(long long timestamp_s, struct tm *res, int time_zone);
 
+int str_contain_relative_path(const char* str);
+
 #ifdef LOGME_WINDOWS
 #include <uchar.h>
 int test_wide_char_num_of_utf8_including_wide_null(const char *utf8str);

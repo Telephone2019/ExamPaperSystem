@@ -473,6 +473,22 @@ int v_local_time(long long timestamp_s, struct tm* res, int time_zone) {
 	return 0;
 }
 
+int str_contain_relative_path(const char* str) {
+	size_t slen = strlen(str);
+	return
+		strstr(str, "./") ||
+		strstr(str, ".\\") ||
+		strstr(str, "/./") ||
+		strstr(str, "\\.\\") ||
+		strstr(str, "/../") ||
+		strstr(str, "\\..\\") ||
+		(slen >= 2 && str[slen - 1] == '.' && str[slen - 2] == '/') ||
+		(slen >= 2 && str[slen - 1] == '.' && str[slen - 2] == '\\') ||
+		(slen >= 3 && str[slen - 1] == '.' && str[slen - 2] == '.' && str[slen - 3] == '/') ||
+		(slen >= 3 && str[slen - 1] == '.' && str[slen - 2] == '.' && str[slen - 3] == '\\')
+		;
+}
+
 
 #ifdef LOGME_WINDOWS
 #include<windows.h>
