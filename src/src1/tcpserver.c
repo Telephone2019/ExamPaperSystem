@@ -442,7 +442,7 @@ int receive_file(tcp_node* np, const char* file_dir, const char* filename, int k
 		goto handle_open_fail;
 	}
 	for (long long i = 0; i < file_size;) {
-		char x[204800];
+		char x[512000];
 		long long rlen = file_size - i > sizeof(x) ? sizeof(x) : file_size - i;
 		long long rtotal = 0;
 		while (rtotal < rlen)
