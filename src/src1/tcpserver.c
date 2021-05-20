@@ -420,7 +420,8 @@ int receive_file(tcp_node* np, const char* file_dir, const char* filename, int k
 		goto handle_open_fail;
 	}
 #ifdef V_WINDOWS
-	const char* mkdir = "mkdir ";
+	/* system() may be unstable sometimes */
+	/*const char* mkdir = "mkdir ";
 	const char* mkdir_end = " >nul 2>&1";
 	char* mkdir_cmd = zero_malloc(strlen(mkdir)+fdstrlen+strlen(mkdir_end)+1);
 	if (!mkdir_cmd)
@@ -432,7 +433,7 @@ int receive_file(tcp_node* np, const char* file_dir, const char* filename, int k
 	strcat(mkdir_cmd, file_dir);
 	strcat(mkdir_cmd, mkdir_end);
 	system(mkdir_cmd);
-	free(mkdir_cmd); mkdir_cmd = NULL;
+	free(mkdir_cmd); mkdir_cmd = NULL;*/
 #endif // V_WINDOWS
 	strcat(combined_path, file_dir);
 	strcat(combined_path, filename);
