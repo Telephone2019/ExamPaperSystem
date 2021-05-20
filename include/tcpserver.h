@@ -12,6 +12,7 @@ extern "C" {
 #define MIME_TYPE_BIN "application/octet-stream"
 #define MIME_TYPE_JPEG "image/jpeg"
 #define MIME_TYPE_PDF "application/pdf"
+#define MIME_TYPE_PLAIN_TEXT "text/plain"
 
 #define HTTP_CHARSET_UTF8 "utf-8"
 
