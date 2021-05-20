@@ -579,7 +579,7 @@ static int url_cb(llhttp_t* parser, const char* at, size_t length) {
 		return -1;
 	}
 	memcpy(message->url, at, length);
-	const char* question_mark = strstr(message->url, "?");
+	const char* question_mark = strstr(message->url, "\?");
 	const char* number_sign_after_index = message->url;
 	if (question_mark)
 	{
