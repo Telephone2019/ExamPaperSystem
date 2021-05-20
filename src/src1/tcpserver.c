@@ -186,8 +186,8 @@ static char16_t *get_utf_16_file_name_from_utf8(const char* u8fn) {
 	return w_fn;
 }
 
-// 获取文件句柄（只读），返回 NULL 表示失败，否则返回指定文件的句柄
-static file_handle get_file_hd(const char *filename) {
+// 获取文件句柄，返回 NULL 表示失败，否则返回指定文件的句柄
+static file_handle get_file_hd(const char *filename, int read_only_1_or_write_only_0) {
 	const char* prefix = "\\\\?\\";
 	const char* suffix = "";
 	char* fn_temp = zero_malloc(strlen(filename) + strlen(prefix) + strlen(suffix) + 1);
@@ -208,12 +208,12 @@ static file_handle get_file_hd(const char *filename) {
 	}
 	HANDLE res = CreateFileW(
 		wide_filename,
-		GENERIC_READ,			// 只读
-		FILE_SHARE_READ,		// 可以和其它进程一起读（读共享）
-		NULL,					// lpSecurityAttributes 参数的默认值
-		OPEN_EXISTING,			// 只有存在时才打开，否则失败
-		FILE_ATTRIBUTE_NORMAL,	// 普通文件
-		NULL					// hTemplateFile 参数的默认值
+		read_only_1_or_write_only_0?GENERIC_READ:GENERIC_WRITE,			// 只读（只写）
+		read_only_1_or_write_only_0?FILE_SHARE_READ:0,					// 可以和其它进程一起读（读共享）（不能共享）
+		NULL,															// lpSecurityAttributes 参数的默认值
+		read_only_1_or_write_only_0?OPEN_EXISTING:CREATE_ALWAYS,		// 只有存在时才打开，否则失败（存在则清空，不存在则创建）
+		FILE_ATTRIBUTE_NORMAL,											// 普通文件
+		NULL															// hTemplateFile 参数的默认值
 	);
 	free(wide_filename); wide_filename = NULL;
 	if (res == INVALID_HANDLE_VALUE)
@@ -386,7 +386,7 @@ int send_text(tcp_node* np, int status_code, const char * reason_phrase, int kee
 
 int send_file(tcp_node* np, const char* filename, int keep_alive, const char *MIME_type, const char *file_charset, int is_download, const char *download_filename) {
 	char resp[5000];
-	HANDLE hFile = get_file_hd(filename).handle;
+	HANDLE hFile = get_file_hd(filename, 1).handle;
 	if (hFile == NULL) {
 		LogMe.et("send_file() [socket = %p ] [file = \"%s\" ] could not get file handle", np->socket, filename);
 		return send_text(
