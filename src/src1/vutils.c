@@ -463,6 +463,17 @@ void delete_string_list(string_list list, string_list* list_addr) {
 	}
 }
 
+int v_local_time(long long timestamp_s, struct tm* res, int time_zone) {
+	timestamp_s += time_zone * 3600;
+	if (timestamp_s < 0)
+	{
+		return 0;
+	}
+	/* don't know how to do... */
+	return 0;
+}
+
+
 #ifdef LOGME_WINDOWS
 #include<windows.h>
 int test_wide_char_num_of_utf8_including_wide_null(const char* utf8str) {

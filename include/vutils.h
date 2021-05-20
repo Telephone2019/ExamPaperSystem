@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include <time.h>
 
 #include "macros.h"
 #include "vlist.h"
@@ -48,6 +49,14 @@ typedef struct vstring {
 string_list splitf(const char* str, const char* str_end, char delimiter, int first_n);
 string_list splitt(const char* str, const char* str_end, char delimiter, int total_n);
 void delete_string_list(string_list list, string_list* list_addr);
+
+// the time_zone value: e.g.:
+// GMT+8 -> time_zone = +8
+// GMT-8 -> time_zone = -8
+// Return Value:
+// 0: fail
+// non-zero: success
+int v_local_time(long long timestamp_s, struct tm *res, int time_zone);
 
 #ifdef LOGME_WINDOWS
 #include <uchar.h>
