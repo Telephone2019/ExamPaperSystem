@@ -186,7 +186,8 @@ static char16_t *get_utf_16_file_name_from_utf8(const char* u8fn) {
 	return w_fn;
 }
 
-file_handle get_file_hd(const char *filename) {
+// 获取文件句柄（只读），返回 NULL 表示失败，否则返回指定文件的句柄
+static file_handle get_file_hd(const char *filename) {
 	const char* prefix = "\\\\?\\";
 	const char* suffix = "";
 	char* fn_temp = zero_malloc(strlen(filename) + strlen(prefix) + strlen(suffix) + 1);

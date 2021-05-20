@@ -41,9 +41,6 @@ typedef struct HttpHandler {
 
 void tcp_server_run(int port, int memmory_lack, vlist http_handlers);
 
-// 获取文件句柄（只读），返回 NULL 表示失败，否则返回指定文件的句柄
-file_handle get_file_hd(const char* filename);
-
 // 此函数会将 node 结构体中的 socket 设置为阻塞模式，并设置读取超时时间为 node 结构体中的相应字段，然后调用 recv() 并返回 recv() 的返回值
 // 此函数的日志输出是完备的
 int recv_t(tcp_node* np, char* buf, int len, int flags);
