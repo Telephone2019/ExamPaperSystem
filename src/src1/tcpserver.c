@@ -25,87 +25,6 @@ extern "C" {
 #define DEFAULT_RECV_TIMEOUT_S 15
 #define DEFAULT_SEND_TIMEOUT_S 15
 
-#define HTML_200 "<html>\n"\
-"<body>\n"\
-"<h1>Great! 非常棒！</h1>\n"\
-"<div name=\"hw\" id=\"hw\">\n"\
-"<a href=\"/?#end\">Click here to test url fragment!(Jump to the end)</a>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"<h1>Hello, world!</h1>\n"\
-"</div>\n"\
-"<div name=\"end\" id=\"end\">\n"\
-"<a href=\"/?#hw\">Click here to test url fragment!(Jump to hello,world)</a>\n"\
-"</div>\n"\
-"</body>\n"\
-"</html>\n"
-#define HTML_400 "<html>\n<body>\n<h1>Bad Request 这是一个糟糕的请求</h1>\n</body>\n</html>\n"
-#define HTML_404 "<html>\n<body>\n<h1>File Not Found 文件找不到</h1>\n</body>\n</html>\n"
-#define HTML_500 "<html>\n<body>\n<h1>Internal Server Error 服务器内部发生了错误</h1>\n</body>\n</html>\n"
-
-#define REASON_PHRASE_200 "OK"
-#define REASON_PHRASE_400 "Bad Request"
-#define REASON_PHRASE_404 "Not Found"
-#define REASON_PHRASE_500 "Internal Server Error"
-
 typedef struct tcp_node {
 	VLISTNODE
 		HANDLE handle;
@@ -138,6 +57,12 @@ static int init_winsock() {
 typedef struct params {
 	node* node_p;
 	vlist http_handlers;
+	const char* phrase_200;
+	const char* html_200;
+	const char* phrase_400;
+	const char* html_400;
+	const char* phrase_500;
+	const char* html_500;
 } params;
 
 typedef struct tcp_server {
@@ -384,7 +309,14 @@ int send_text(tcp_node* np, int status_code, const char * reason_phrase, int kee
 	}
 }
 
-int send_file(tcp_node* np, const char* filename, int keep_alive, const char *MIME_type, const char *file_charset, int is_download, const char *download_filename) {
+int send_file(tcp_node* np, const char* filename, int keep_alive, const char* MIME_type, const char* file_charset, int is_download, const char* download_filename
+	, const char* phrase_200
+	, const char* html_200
+	, const char* phrase_404
+	, const char* html_404
+	, const char* phrase_500
+	, const char* html_500
+) {
 	char resp[5000];
 	HANDLE hFile = get_file_hd(filename, 1).handle;
 	if (hFile == NULL) {
@@ -392,9 +324,9 @@ int send_file(tcp_node* np, const char* filename, int keep_alive, const char *MI
 		return send_text(
 			np,
 			404,
-			REASON_PHRASE_404,
+			phrase_404,
 			keep_alive,
-			HTML_404,
+			html_404,
 			MIME_TYPE_HTML,
 			HTTP_CHARSET_UTF8,
 			0, NULL
@@ -407,9 +339,9 @@ int send_file(tcp_node* np, const char* filename, int keep_alive, const char *MI
 			return send_text(
 				np,
 				500,
-				REASON_PHRASE_500,
+				phrase_500,
 				keep_alive,
-				HTML_500,
+				html_500,
 				MIME_TYPE_HTML,
 				HTTP_CHARSET_UTF8,
 				0, NULL
@@ -420,7 +352,7 @@ int send_file(tcp_node* np, const char* filename, int keep_alive, const char *MI
 				resp,
 				sizeof(resp),
 				200,
-				REASON_PHRASE_200,
+				phrase_200,
 				keep_alive,
 				NULL,
 				fSize.QuadPart,
@@ -442,6 +374,89 @@ int send_file(tcp_node* np, const char* filename, int keep_alive, const char *MI
 			}
 		}
 	}
+}
+
+int receive_file(tcp_node* np, const char* file_dir, const char* filename, int keep_alive, long long file_size
+	, const char* phrase_200
+	, const char* html_200
+	, const char* phrase_500
+	, const char* html_500
+) {
+	size_t fdstrlen = strlen(file_dir);
+	size_t fnstrlen = strlen(filename);
+	if (fdstrlen <= 0 || fnstrlen <= 0)
+	{
+		handle_open_fail:
+		LogMe.et("receive_file() [socket = %p ] [file = \"%s\" ] could not get file handle", np->socket, filename);
+		handle_500:
+		return send_text(
+			np,
+			500,
+			phrase_500,
+			keep_alive,
+			html_500,
+			MIME_TYPE_HTML,
+			HTTP_CHARSET_UTF8,
+			0, NULL
+		) == 0 ? 1 : -1;
+	}
+	if (file_size <= 0)
+	{
+		LogMe.et("receive_file() [socket = %p ] [file = \"%s\" ] file_size = %lld , error!", np->socket, filename, file_size);
+		goto handle_500;
+	}
+	if ((file_dir[fdstrlen-1] != '\\') || filename[0] == '\\' || filename[0] == '/' || filename[0] == '.')
+	{
+		goto handle_open_fail;
+	}
+	char* combined_path = zero_malloc(fdstrlen+fnstrlen+1);
+	if (!combined_path)
+	{
+		goto handle_open_fail;
+	}
+	strcat(combined_path, file_dir);
+	strcat(combined_path, filename);
+	HANDLE hFile = get_file_hd(combined_path, 0).handle;
+	free(combined_path); combined_path = NULL;
+	if (hFile == NULL) {
+		goto handle_open_fail;
+	}
+	for (long long i = 0; i < file_size;) {
+		char x[204800];
+		long long rlen = file_size - i > sizeof(x) ? sizeof(x) : file_size - i;
+		long long rtotal = 0;
+		while (rtotal < rlen)
+		{
+			int rres = recv_t(np, x+rtotal, rlen - rtotal, 0);
+			if (rres <= 0)
+			{
+				CloseHandle(hFile); hFile = NULL;
+				return -1;
+			}
+			rtotal += rres;
+		}
+		long long bWritten = 0;
+		BOOL wres = WriteFile(hFile, &x, rlen, &bWritten, NULL);
+		if (!wres || bWritten < rlen) {
+			LogMe.et("receive_file() [socket = %p ] [file = \"%s\" ] failed to write to file with error %lu", np->socket, filename, GetLastError());
+			CloseHandle(hFile); hFile = NULL;
+			goto handle_500;
+		}
+		//LogMe.bt("successfully write %lld bytes to file[ \"%s\" ]", rlen, filename);
+		i += rlen;
+	}
+	CloseHandle(hFile); hFile = NULL;
+	LogMe.it("receive_file() [socket = %p ] [file = \"%s\" ] completed with file_size = %lld", np->socket, filename, file_size);
+	return send_text(
+		np,
+		200,
+		phrase_200,
+		keep_alive,
+		html_200,
+		MIME_TYPE_HTML,
+		HTTP_CHARSET_UTF8,
+		0, NULL
+	) == 0 ? 0 : -1;
 }
 
 typedef struct generator_params {
@@ -509,9 +524,9 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 					send_text(
 						np,
 						500,
-						REASON_PHRASE_500,
+						pp->phrase_500,
 						1,
-						HTML_500,
+						pp->html_500,
 						MIME_TYPE_HTML,
 						HTTP_CHARSET_UTF8,
 						0,
@@ -534,9 +549,9 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 						send_text(
 							np,
 							400,
-							REASON_PHRASE_400,
+							pp->phrase_400,
 							1,
-							HTML_400,
+							pp->html_400,
 							MIME_TYPE_HTML,
 							HTTP_CHARSET_UTF8,
 							0,
@@ -550,7 +565,7 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 				}
 				else
 				{
-					LogMe.bt("[ Parsed HTTP Message From Socket %p ] HTTP/%d.%d %s %s %ld", np->socket, hmsg.http_major, hmsg.http_minor, hmsg.url, getConstHttpMethodNameStr(hmsg.method), hmsg.content_length);
+					LogMe.bt("[ Parsed HTTP Message From Socket %p ] HTTP/%d.%d %s %s %lld", np->socket, hmsg.http_major, hmsg.http_minor, hmsg.url, getConstHttpMethodNameStr(hmsg.method), hmsg.content_length);
 					LogMe.w("query string list:");
 					if (hmsg.query_string)
 						hmsg.query_string->foreach(hmsg.query_string, printHttpHeader, NULL);
@@ -585,15 +600,15 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 					}
 					if (!handled)
 					{
-						long content_length_f = hmsg.content_length;
-						long content_length = hmsg.content_length;
+						long long content_length_f = hmsg.content_length;
+						long long content_length = hmsg.content_length;
 						freeHttpMessage(&hmsg);
 						long recved_content_length = 0;
 						char content[5096] = { 0 };
 						// recv content
 						while (content_length > 0)
 						{
-							long r_len = content_length > 1024 ? 1024 : content_length;
+							long long r_len = content_length > 1024 ? 1024 : content_length;
 							content_length -= r_len;
 							char temp[1024] = { 0 };
 							int r_res = recv_t(np, temp, r_len, 0);
@@ -626,7 +641,7 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 						}
 						if (content_length_f > 0)
 						{
-							LogMe.it("[ HTTP Content From Socket %p ] length = %ld | received length = %ld", np->socket, content_length_f, recved_content_length);
+							LogMe.it("[ HTTP Content From Socket %p ] length = %lld | received length = %ld", np->socket, content_length_f, recved_content_length);
 							LogMe.n("%s", content);
 						}
 						// response 200 then go on
@@ -634,9 +649,9 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 							send_text(
 								np,
 								200,
-								REASON_PHRASE_200,
+								pp->phrase_200,
 								1,
-								HTML_200,
+								pp->html_200,
 								MIME_TYPE_HTML,
 								HTTP_CHARSET_UTF8,
 								0,
@@ -672,9 +687,9 @@ static DWORD WINAPI connection_run(_In_ LPVOID params_p) {
 				send_text(
 					np,
 					500,
-					REASON_PHRASE_500,
+					pp->phrase_500,
 					1,
-					HTML_500,
+					pp->html_500,
 					MIME_TYPE_HTML,
 					HTTP_CHARSET_UTF8,
 					0,
@@ -808,7 +823,14 @@ static void print_addrinfo_list(struct addrinfo *result) {
 	}
 }
 
-void tcp_server_run(int port, int memmory_lack, vlist http_handlers) {
+void tcp_server_run(int port, int memmory_lack, vlist http_handlers
+	, const char* phrase_200
+	, const char* html_200
+	, const char* phrase_400
+	, const char* html_400
+	, const char* phrase_500
+	, const char* html_500
+) {
 	const char* exit_words = "tcp server exited";
 	const char* hello_words = "tcp server started";
 	const long max_cnt_list_size = memmory_lack ? 6 : 2000;
@@ -971,6 +993,12 @@ void tcp_server_run(int port, int memmory_lack, vlist http_handlers) {
 		np->open = 1;
 		pp->node_p = np;
 		pp->http_handlers = http_handlers;
+		pp->phrase_200 = phrase_200;
+		pp->html_200 = html_200;
+		pp->phrase_400 = phrase_400;
+		pp->html_400 = html_400;
+		pp->phrase_500 = phrase_500;
+		pp->html_500 = html_500;
 		server.connections_list->quick_add(server.connections_list, np);
 		LogMe.wt("Connection thread [tid = %lu ] [client socket = %p ] start.", np->tid, np->socket);
 		ResumeThread(np->handle);

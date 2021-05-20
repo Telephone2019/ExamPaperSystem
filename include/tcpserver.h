@@ -39,7 +39,14 @@ typedef struct HttpHandler {
 	void* extra;
 } HttpHandler;
 
-void tcp_server_run(int port, int memmory_lack, vlist http_handlers);
+void tcp_server_run(int port, int memmory_lack, vlist http_handlers
+, const char* phrase_200
+, const char* html_200
+, const char* phrase_400
+, const char* html_400
+, const char* phrase_500
+, const char* html_500
+);
 
 // 此函数会将 node 结构体中的 socket 设置为阻塞模式，并设置读取超时时间为 node 结构体中的相应字段，然后调用 recv() 并返回 recv() 的返回值
 // 此函数的日志输出是完备的
@@ -70,7 +77,31 @@ int send_text(tcp_node* np, int status_code, const char* reason_phrase, int keep
 // 2 : 回复 500 成功
 // -1 : 回复或传输文件时失败，不应再进行更多的 socket 操作，应尽快断开并清理连接
 // 此函数的日志输出是完备的。
-int send_file(tcp_node* np, const char* filename, int keep_alive, const char* MIME_type, const char* file_charset, int is_download, const char* download_filename);
+int send_file(tcp_node* np, const char* filename, int keep_alive, const char* MIME_type, const char* file_charset, int is_download, const char* download_filename
+, const char *phrase_200
+, const char *html_200
+, const char *phrase_404
+, const char *html_404
+, const char *phrase_500
+, const char *html_500
+);
+
+// 此函数调用 recv_t() 接收数据并将数据转储到指定的本地文件中：
+// 如果出现任意错误，打印错误日志，回复 500 页面；
+// 如果未发生错误，转储数据到文件完毕后回复 200 页面。
+// 若失败，查看日志以获取详细信息。
+// keep_alive 参数仅仅用于生成回复报文字段，实际断开连接需要调用者手动进行。
+// 返回值：（大于等于 0 表示没有连接错误发生，小于 0 表示发生了连接错误）
+// 0 : 转储成功
+// 1 : 回复 500 成功
+// -1 : 回复或接收数据时失败，不应再进行更多的 socket 操作，应尽快断开并清理连接
+// 此函数的日志输出是完备的。
+int receive_file(tcp_node* np, const char* file_dir, const char* filename, int keep_alive, long long file_size
+, const char* phrase_200
+, const char* html_200
+, const char* phrase_500
+, const char* html_500
+);
 
 #ifdef __cplusplus
 }

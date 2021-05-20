@@ -97,6 +97,8 @@
 #define REASON_PHRASE_404 "Not Found"
 #define REASON_PHRASE_500 "Internal Server Error"
 
+#define HAND_IN_PAPER_PWD "_Hand_iN_px"
+
 typedef struct node {
     VLISTNODE
         int data;
@@ -135,6 +137,17 @@ int get_exam_id(int position) {
     else
     {
         return 1;
+    }
+}
+
+const char *get_exam_dir(int position) {
+    if (position & 1)
+    {
+        return "E:\\exam0\\";
+    }
+    else
+    {
+        return "E:\\exam1\\";
     }
 }
 
@@ -198,7 +211,13 @@ int get_paper(HttpMessage* hmsg, HttpHandlerPac* hpac) {
             paper_filenames[eid][MIME_TYPE_INDEX],
             paper_filenames[eid][FILE_CHARSET_INDEX],
             1,
-            encoded_name
+            encoded_name,
+            REASON_PHRASE_200,
+            HTML_200,
+            REASON_PHRASE_404,
+            HTML_404,
+            REASON_PHRASE_500,
+            HTML_500
         ) < 0
         ) {
         LogMe.et("get_paper() send failed");
@@ -265,17 +284,90 @@ int get_exam_time(HttpMessage* hmsg, HttpHandlerPac* hpac) {
     return 1;
 }
 
+int hand_in_paper(HttpMessage* hmsg, HttpHandlerPac* hpac) {
+    FindQuery fq = {
+        .expected_field = "pos",
+        .value = NULL
+    };
+    if (!hmsg->query_string)
+    {
+    handle_404:
+        if (
+            send_text(
+                hpac->node,
+                404,
+                REASON_PHRASE_404,
+                1,
+                HTML_404,
+                MIME_TYPE_HTML,
+                HTTP_CHARSET_UTF8,
+                0,
+                NULL
+            ) != 0
+            )
+        {
+            return -97;
+        }
+        return 2;
+    }
+    hmsg->query_string->foreach(hmsg->query_string, find_query, &fq);
+    int pos = -1;
+    if (!fq.value || (sscanf(fq.value, "%d", &pos), pos < 0))
+    {
+        goto handle_404;
+    }
+    int eid = get_exam_id(pos);
+    fq = (FindQuery){
+        .expected_field = "pwd",
+        .value = NULL
+    };
+    hmsg->query_string->foreach(hmsg->query_string, find_query, &fq);
+    if (!fq.value || strcmp(fq.value, HAND_IN_PAPER_PWD))
+    {
+        goto handle_404;
+    }
+    fq = (FindQuery){
+        .expected_field = "fn",
+        .value = NULL
+    };
+    hmsg->query_string->foreach(hmsg->query_string, find_query, &fq);
+    if (!fq.value)
+    {
+        goto handle_404;
+    }
+    const char* filename = fq.value;
+    if (hmsg->content_length <= 0)
+    {
+        LogMe.et("hand_in_paper() get <=0 content-length [content-length=%lld]", hmsg->content_length);
+        goto handle_404;
+    }
+    int rfres = receive_file(hpac->node, get_exam_dir(pos), filename, 1, hmsg->content_length
+        , REASON_PHRASE_200
+        , HTML_200
+        , REASON_PHRASE_500
+        , HTML_500
+    );
+    if (rfres < 0)
+    {
+        return -98;
+    }
+    return 1;
+}
+
 const char* const url_path_patterns[] = {
     "/paper",
-    "/examtime"
+    "/examtime",
+    "/handinpaper"
 };
 
 HTTP_HANDLE_FUNC_TYPE* const procs[] = {
     get_paper,
-    get_exam_time
+    get_exam_time,
+    hand_in_paper
 };
 
 const void* const extras[] = {
+    NULL,
     NULL,
     NULL
 };
@@ -375,7 +467,14 @@ int main()
         LogMe.et("Malloc failed when generating HTTP handlers");
         return -1;
     }
-    tcp_server_run(23456, 1, handlers);
+    tcp_server_run(23456, 1, handlers
+        , REASON_PHRASE_200
+        , HTML_200
+        , REASON_PHRASE_400
+        , HTML_400
+        , REASON_PHRASE_500
+        , HTML_500
+    );
     delete_vlist(handlers, &handlers);
 #endif // LOGME_WINDOWS
 

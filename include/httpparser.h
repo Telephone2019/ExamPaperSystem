@@ -94,7 +94,7 @@ typedef struct HttpMessage {
 	vlist query_string;
 	vlist url_fragment;
 	vlist http_headers;
-	long content_length;
+	long long content_length;
 	long status_code;
 	char* location;
 } HttpMessage;

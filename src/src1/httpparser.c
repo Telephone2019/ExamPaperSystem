@@ -716,8 +716,8 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
 			message->malloc_success = 0;
 			return -1;
 		}
-		long length = 0;
-		if (sscanf(v, "%ld", &length) < 1)
+		long long length = 0;
+		if (sscanf(v, "%lld", &length) < 1)
 		{
 			llhttp_set_error_reason(parser, "Unable to parse content length");
 			return HPE_USER;
