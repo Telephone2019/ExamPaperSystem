@@ -28,11 +28,6 @@ target_include_directories(KBHook PUBLIC ${MyInclude2})
 # 仅适用于 windows 平台
 # target_link_libraries(TCPServer PRIVATE LogMe Ws2_32 VUtils)
 
-######################################### 自定义库的动态库文件目录 #########################################
-
-# 仅适用于 windows 平台
-target_link_directories(KBHook PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-
 ############################################# 自定义库的安装 #############################################
 
 # 仅适用于 windows 平台

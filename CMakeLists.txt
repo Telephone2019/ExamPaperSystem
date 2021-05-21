@@ -47,7 +47,7 @@ add_subdirectory(src)
 # 链接自定义库
 target_link_libraries(ExamPaperSystem PRIVATE VList LogMe VUtils HttpParser)
 # 以下自定义库仅适用于 windows 平台
-target_link_libraries(ExamPaperSystem PRIVATE TCPServer KBHook)
+target_link_libraries(ExamPaperSystem PRIVATE TCPServer KBHook SQLite3_win_x64)
 
 # 标准库
 # GCC

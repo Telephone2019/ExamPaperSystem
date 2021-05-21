@@ -11,8 +11,9 @@
 #ifdef LOGME_WINDOWS
 
 #include <windows.h>
-#include <tcpserver.h>
-#include <kbhook.h>
+#include "tcpserver.h"
+#include "kbhook.h"
+#include "sqlite3.h"
 
 #endif // LOGME_WINDOWS
 
@@ -460,6 +461,10 @@ int main()
         LogMe.e("HOOK INSTALL FAIL!");
     }
 #endif // TEST_HOOK
+#define TEST_SQLITE3
+#ifdef TEST_SQLITE3
+    sqlite3_blob_bytes(NULL);
+#endif // TEST_SQLITE3
     vlist handlers = make_vlist(sizeof(HttpHandler));
     if (!handlers || !generate_http_handlers(handlers))
     {
