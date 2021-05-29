@@ -34,6 +34,9 @@ project ("ExamPaperSystem")
 
 # 将源代码添加到此项目的可执行文件。
 add_executable (ExamPaperSystem "ExamPaperSystem.c")
+# 安装
+# 仅适用于 windows 平台
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/ExamPaperSystem.db" DESTINATION ${PROJECT_BINARY_DIR})
 
 # 链接额外的静态库和动态库
 # 依赖关系（如果有）要满足：前面的库依赖后面的库

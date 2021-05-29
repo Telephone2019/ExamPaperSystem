@@ -13,7 +13,7 @@
 #include <windows.h>
 #include "tcpserver.h"
 #include "kbhook.h"
-#include "sqlite3.h"
+#include "db.c"
 
 #endif // LOGME_WINDOWS
 
@@ -463,7 +463,18 @@ int main()
 #endif // TEST_HOOK
 #define TEST_SQLITE3
 #ifdef TEST_SQLITE3
-    sqlite3_blob_bytes(NULL);
+    db_init();
+    Paper paper = db_get_paper(4);
+    if (paper.valid)
+    {
+        LogMe.b("fp = %s, mime = %s, fn = %s", paper.path, paper.mime_type, paper.dl_name);
+    }
+    else
+    {
+        LogMe.e("get paper fail");
+    }
+    db_deletePaper(&paper);
+    db_close();
 #endif // TEST_SQLITE3
     vlist handlers = make_vlist(sizeof(HttpHandler));
     if (!handlers || !generate_http_handlers(handlers))
