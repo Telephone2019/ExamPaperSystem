@@ -201,31 +201,46 @@ int get_paper(HttpMessage* hmsg, HttpHandlerPac* hpac) {
     {
         goto handle_400;
     }
-    int eid = get_exam_id(pos);
-    char encoded_name[500];
-    const char* dlname = paper_filenames[eid][DOWNLOAD_NAME_INDEX];
-    url_encode(dlname, strlen(dlname), encoded_name, sizeof(encoded_name), 0);
-    if (
-        send_file(
-            hpac->node,
-            paper_filenames[eid][FILE_NAME_INDEX],
-            1,
-            paper_filenames[eid][MIME_TYPE_INDEX],
-            paper_filenames[eid][FILE_CHARSET_INDEX],
-            1,
-            encoded_name,
-            REASON_PHRASE_200,
-            HTML_200,
-            REASON_PHRASE_404,
-            HTML_404,
-            REASON_PHRASE_500,
-            HTML_500
-        ) < 0
-        ) {
-        LogMe.et("get_paper() send failed");
-        return -98;
+    int return_value = 1;
+    Paper paper = db_get_paper(pos);
+    if (paper.valid)
+    {
+        char encoded_name[500];
+        const char* dlname = paper.dl_name;
+        url_encode(dlname, strlen(dlname), encoded_name, sizeof(encoded_name), 0);
+        if (
+            send_file(
+                hpac->node,
+                paper.path,
+                1,
+                paper.mime_type,
+                NULL,
+                1,
+                encoded_name,
+                REASON_PHRASE_200,
+                HTML_200,
+                REASON_PHRASE_404,
+                HTML_404,
+                REASON_PHRASE_500,
+                HTML_500
+            ) < 0
+            ) {
+            LogMe.et("get_paper() send failed");
+            return_value = -98; goto clean;
+        }
     }
-    return 1;
+    else {
+        if (send_text(hpac->node, 404, REASON_PHRASE_404, 1, HTML_404, MIME_TYPE_HTML, HTTP_CHARSET_UTF8, 0, NULL))
+        {
+            LogMe.et("get_paper() reply 404 failed");
+            return_value = -99; goto clean;
+        }
+    }
+    return_value = 1; goto clean;
+
+clean:
+    db_deletePaper(&paper);
+    return return_value;
 }
 
 int get_exam_time(HttpMessage* hmsg, HttpHandlerPac* hpac) {
@@ -496,6 +511,7 @@ int main()
         LogMe.et("Malloc failed when generating HTTP handlers");
         return -1;
     }
+    db_init();
     tcp_server_run(23456, 1, handlers
         , REASON_PHRASE_200
         , HTML_200
@@ -504,6 +520,7 @@ int main()
         , REASON_PHRASE_500
         , HTML_500
     );
+    db_close();
     delete_vlist(handlers, &handlers);
 #endif // LOGME_WINDOWS
 

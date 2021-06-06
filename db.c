@@ -34,6 +34,10 @@ void check_db() {
 }
 
 void db_deletePaper(Paper* paper) {
+	if (!paper)
+	{
+		return;
+	}
 	free(paper->path); paper->path = NULL;
 	free(paper->mime_type); paper->mime_type = NULL;
 	free(paper->dl_name); paper->dl_name = NULL;

@@ -20,17 +20,17 @@ select * from exam;
 
 insert into paper (file_path, mime_type, name)
 values
-('D:\p1.txt', 'text/plain', 'papre1'),
-('D:\p2.txt', 'text/plain', 'papre2'),
-('D:\p3.txt', 'text/plain', 'papre3'),
-('D:\p4.txt', 'text/plain', 'papre4'),
-('D:\p5.txt', 'text/plain', 'papre5'),
-('D:\p6.txt', 'text/plain', 'papre6'),
-('D:\p7.txt', 'text/plain', 'papre7'),
-('D:\p8.txt', 'text/plain', 'papre8'),
-('D:\p9.txt', 'text/plain', 'papre9'),
-('D:\p10.txt', 'text/plain', 'papre10'),
-('D:\p11.txt', 'text/plain', 'papre11')
+('D:\p1.txt', 'text/plain', 'papre1.txt'),
+('D:\p2.txt', 'text/plain', 'papre2.txt'),
+('D:\p3.txt', 'text/plain', 'papre3.txt'),
+('D:\p4.txt', 'text/plain', 'papre4.txt'),
+('D:\p5.txt', 'text/plain', 'papre5.txt'),
+('D:\p6.txt', 'text/plain', 'papre6.txt'),
+('D:\p7.txt', 'text/plain', 'papre7.txt'),
+('D:\p8.txt', 'text/plain', 'papre8.txt'),
+('D:\p9.txt', 'text/plain', 'papre9.txt'),
+('D:\p10.txt', 'text/plain', 'papre10.txt'),
+('D:\p11.txt', 'text/plain', 'papre11.txt')
 ;
 select * from paper;
 
