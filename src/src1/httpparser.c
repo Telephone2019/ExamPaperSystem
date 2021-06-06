@@ -433,6 +433,7 @@ again:;
 		{
 			// not found
 		not_found:;
+			*method_p = INVALID_METHOD;
 			gwp.next_read_buffer_index = 0;
 			continue;
 		}
@@ -462,7 +463,7 @@ again:;
 			*method_p = INVALID_METHOD;
 			*message_pp = NULL;
 			delete_vlist(generated_buffer, &generated_buffer);
-			return method_f_res;
+			return method_f_res + -5;
 		}
 	}
 	if (*method_p == INVALID_METHOD)

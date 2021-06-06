@@ -69,7 +69,7 @@ int find_sub_str(size_t max_call_time, GENERATOR_FUNCTION_TYPE* generator, GENER
 // -2 : find_sub_str() 动态内存分配失败
 // -3 : 字符生成器 generator 调用失败
 // -4 : 已经检测到合法报文，但尝试开辟一块内存来存放报文时发生了动态内存分配失败
-// 其他负数 : find_sub_str() 返回此错误码
+// 其他负数 : find_sub_str() 返回的错误码 + -5
 int next_http_message(HttpMethod* method_p, char** message_pp, GENERATOR_FUNCTION_TYPE* generator, GENERATOR_PARAM_TYPE* generator_param_p, int is_response);
 #endif // CASE_INSENSITIVE_STRSTR
 
