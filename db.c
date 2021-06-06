@@ -45,13 +45,9 @@ Paper db_get_paper(long long pos) {
 	sqlite3_stmt* sql_statement = NULL;
 	int prepared_code = sqlite3_prepare(db,
 		"select file_path, mime_type, name from"
-		"("
-		"select pid from"
-		"(select e.id from (select eid from pos_exam where pos=@pos)pe,(select * from exam)e where pe.eid=e.id and e.start_ts<=cast(strftime('%s', 'now') as INTEGER) and e.start_ts+e.duration_s>=cast(strftime('%s', 'now') as INTEGER)),"
-		"(select * from exam_paper)"
-		"where id=eid),"
+		"(select pe.pid as current_pid from (select pid, eid from pos_exam where pos=@pos)pe,(select * from exam)e where pe.eid=e.id and e.start_ts<=cast(strftime('%s', 'now') as INTEGER) and e.start_ts+e.duration_s>=cast(strftime('%s', 'now') as INTEGER)),"
 		"(select * from paper)"
-		"where pid=id"
+		"where current_pid=id;"
 		, -1, &sql_statement, NULL);
 	const char *prepared_err_msg =sqlite3_errmsg(db);
 	int pos_index = sqlite3_bind_parameter_index(sql_statement, "@pos");

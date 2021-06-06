@@ -464,14 +464,26 @@ int main()
 #define TEST_SQLITE3
 #ifdef TEST_SQLITE3
     db_init();
-    Paper paper = db_get_paper(4);
+    int pos = 1;
+    Paper paper = db_get_paper(pos);
     if (paper.valid)
     {
-        LogMe.b("fp = %s, mime = %s, fn = %s", paper.path, paper.mime_type, paper.dl_name);
+        LogMe.b("[paper for pos %d ] fp = %s, mime = %s, fn = %s", pos, paper.path, paper.mime_type, paper.dl_name);
     }
     else
     {
-        LogMe.e("get paper fail");
+        LogMe.e("[paper for pos %d ] not found", pos);
+    }
+    db_deletePaper(&paper);
+    pos = 0;
+    paper = db_get_paper(pos);
+    if (paper.valid)
+    {
+        LogMe.b("[paper for pos %d ] fp = %s, mime = %s, fn = %s", pos, paper.path, paper.mime_type, paper.dl_name);
+    }
+    else
+    {
+        LogMe.e("[paper for pos %d ] not found", pos);
     }
     db_deletePaper(&paper);
     db_close();
