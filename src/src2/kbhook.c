@@ -58,12 +58,40 @@ DllExport LRESULT CALLBACK KBHOOK_MouseProc_______________(int nCode, WPARAM wPa
 	switch (wParam)
 	{
 	case WM_LBUTTONDOWN:
+		LogMe.i("L Button Down!");
+		break;
 	case WM_LBUTTONUP:
+		LogMe.i("L Button Up!");
+		break;
 	case WM_RBUTTONDOWN:
+		LogMe.i("R Button Down!");
+		break;
 	case WM_RBUTTONUP:
-	case WM_MOUSEMOVE:
+		LogMe.i("R Button Up!");
+		break;
+	case WM_MBUTTONDOWN:
+		LogMe.i("M Button Down!");
+		break;
+	case WM_MBUTTONUP:
+		LogMe.i("M Button Up!");
+		break;
 	case WM_MOUSEWHEEL:
-
+		short high_word = HIWORD(p->mouseData);
+		if (high_word > 0)
+		{
+			LogMe.i("Wheel scroll away!");
+		}
+		else if (high_word < 0)
+		{
+			LogMe.i("Wheel scroll toward!");
+		}
+		else
+		{
+			LogMe.e("Unknown wheel action");
+		}
+		break;
+	case WM_MOUSEMOVE:
+		LogMe.b("Move to (x,y): (%ld,%ld)", p->pt.x, p->pt.y);
 		break;
 	case WM_MOUSEHWHEEL:
 	default:
@@ -74,7 +102,7 @@ DllExport LRESULT CALLBACK KBHOOK_MouseProc_______________(int nCode, WPARAM wPa
 }
 
 DllExport void UninstallHook(HANDLE hook, HANDLE* hookaddr, HANDLE shareobj, HANDLE* shareobj_addr) {
-	if (hook == NULL) {
+	if (hook == NULL || shareobj == NULL) {
 		return;
 	}
 	*hookaddr = *shareobj_addr = NULL;
@@ -108,13 +136,35 @@ static void MessageLoop(HANDLE shareobj) {
 	}
 }
 
-static HANDLE SetHook() {
+static const char* get_proc_name(HookType type) {
+	switch (type)
+	{
+	default:
+	case HT_KEYBOARD:
+		return "KBHOOK_KeyboardProc_______________";
+	case HT_MOUSE:
+		return "KBHOOK_MouseProc_______________";
+	}
+}
+
+static int get_hook_int(HookType type) {
+	switch (type)
+	{
+	default:
+	case HT_KEYBOARD:
+		return WH_KEYBOARD_LL;
+	case HT_MOUSE:
+		return WH_MOUSE_LL;
+	}
+}
+
+static HANDLE SetHook(HookType type) {
 	HINSTANCE hinstDLL = LoadLibrary(TEXT("KBHook.dll"));
 	if (!hinstDLL) {
 		return NULL;
 	}
-	HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "KBHOOK_KeyboardProc_______________");
-	HHOOK hhookSysMsg = SetWindowsHookEx(WH_KEYBOARD_LL, hkprcSysMsg, hinstDLL, 0);
+	HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, get_proc_name(type));
+	HHOOK hhookSysMsg = SetWindowsHookEx(get_hook_int(type), hkprcSysMsg, hinstDLL, 0);
 	if (hhookSysMsg == NULL) {
 		CloseHandle(hinstDLL);
 	}
@@ -125,13 +175,14 @@ typedef struct HookThreadRoutine_Parameter {
 	HANDLE* hookaddr;
 	HANDLE sharedobject;
 	int* hooksuccess;
+	HookType hooktype;
 } HookThreadRoutine_Parameter;
 
 static DWORD WINAPI HookThreadRoutine(_In_ LPVOID lpParameter) {
 	HookThreadRoutine_Parameter param = *(HookThreadRoutine_Parameter*)lpParameter;
 	free(lpParameter); lpParameter = NULL;
 
-	*param.hookaddr = SetHook();
+	*param.hookaddr = SetHook(param.hooktype);
 	*param.hooksuccess = *param.hookaddr ? 1 : 0;
 
 	if (!*param.hooksuccess) {
@@ -141,29 +192,33 @@ static DWORD WINAPI HookThreadRoutine(_In_ LPVOID lpParameter) {
 	return 0;
 }
 
-DllExport void InstallHook(int* hooksuccess, HANDLE* hookaddr, HANDLE* sharedobj_addr) {
+DllExport void InstallHook(int* hooksuccess, HANDLE* hookaddr, HANDLE* sharedobj_addr, HookType type) {
 	HANDLE hthread;
 
 	HookThreadRoutine_Parameter* param = malloc(sizeof(HookThreadRoutine_Parameter));
 	if (!param) {
 		*hooksuccess = 0;
+		*hookaddr = *sharedobj_addr = NULL;
 		return;
 	}
 	param->hookaddr = hookaddr;
 	param->hooksuccess = hooksuccess;
 	param->sharedobject = CreateMutex(NULL, 1, NULL);
+	param->hooktype = type;
 	HANDLE hsobj = param->sharedobject;
 	if (!param->sharedobject) {
-		*hooksuccess = 0;
 		free(param);
+		*hooksuccess = 0;
+		*hookaddr = *sharedobj_addr = NULL;
 		return;
 	}
 	hthread = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)HookThreadRoutine, param, NULL, NULL);
 
 	if (!hthread) {
-		*hooksuccess = 0;
 		CloseHandle(param->sharedobject);
 		free(param);
+		*hooksuccess = 0;
+		*hookaddr = *sharedobj_addr = NULL;
 		return;
 	}
 	else {

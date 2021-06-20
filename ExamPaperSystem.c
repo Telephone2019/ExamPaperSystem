@@ -463,18 +463,32 @@ int main()
 #ifdef LOGME_WINDOWS
 #define TEST_HOOK
 #ifdef TEST_HOOK
-    int hook_success;
-    HANDLE hook, sharedobj;
-    InstallHook(&hook_success, &hook, &sharedobj);
-    if (hook_success) {
-        LogMe.i("HOOK INSTALL SUCCESS!");
-        Sleep(15000);
-        UninstallHook(hook, &hook, sharedobj, &sharedobj);
-        LogMe.w("HOOK UNINSTALLED");
+    int kb_hook_success, ms_hook_success;
+    HANDLE kb_hook, ms_hook, kb_sharedobj, ms_sharedobj;
+    InstallHook(&ms_hook_success, &ms_hook, &ms_sharedobj, HT_MOUSE);
+    InstallHook(&kb_hook_success, &kb_hook, &kb_sharedobj, HT_KEYBOARD);
+    int sleep = 0;
+    if (kb_hook_success) {
+        sleep++;
+        LogMe.i("KEYBOARD HOOK INSTALLED!");
     }
     else {
-        LogMe.e("HOOK INSTALL FAIL!");
+        LogMe.e("KEYBOARD HOOK NOT INSTALLED!");
     }
+    if (ms_hook_success) {
+        sleep++;
+        LogMe.i("MOUSE HOOK INSTALLED!");
+    }
+    else {
+        LogMe.e("MOUSE HOOK NOT INSTALLED!");
+    }
+    if (sleep)
+    {
+        Sleep(15000);
+    }
+    UninstallHook(kb_hook, &kb_hook, kb_sharedobj, &kb_sharedobj);
+    UninstallHook(ms_hook, &ms_hook, ms_sharedobj, &ms_sharedobj);
+    LogMe.w("ALL HOOKS UNINSTALLED");
 #endif // TEST_HOOK
 #define TEST_SQLITE3
 #ifdef TEST_SQLITE3
