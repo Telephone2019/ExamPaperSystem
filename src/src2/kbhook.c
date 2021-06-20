@@ -3,9 +3,7 @@ extern "C" {
 #endif
 #include "kbhook.h"
 
-#include <stdio.h>
-
-DllExport LRESULT CALLBACK KBHOOK_KeyboardProc____(int nCode, WPARAM wParam, LPARAM lParam) {
+DllExport LRESULT CALLBACK KBHOOK_KeyboardProc_______________(int nCode, WPARAM wParam, LPARAM lParam) {
 	/* from offical document */
 	if (nCode < 0 || nCode != HC_ACTION) { // do not process message
 		return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -24,7 +22,7 @@ DllExport LRESULT CALLBACK KBHOOK_KeyboardProc____(int nCode, WPARAM wParam, LPA
 		int bCtrlKeyDown =
 			GetAsyncKeyState(VK_CONTROL) >> ((sizeof(SHORT) * 8) - 1);
 		_EatKeystroke = (
-			(p->vkCode == VK_LWIN) 
+			(p->vkCode == VK_LWIN)
 			|| (p->vkCode == VK_RWIN)
 			|| (p->flags & LLKHF_ALTDOWN)
 			|| (p->vkCode == VK_ESCAPE && p->flags & LLKHF_ALTDOWN)
@@ -41,6 +39,32 @@ DllExport LRESULT CALLBACK KBHOOK_KeyboardProc____(int nCode, WPARAM wParam, LPA
 		/* from offical document */
 	}
 	else return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
+DllExport LRESULT CALLBACK KBHOOK_MouseProc_______________(int nCode, WPARAM wParam, LPARAM lParam) {
+	/* from offical document */
+	if (nCode < 0 || nCode != HC_ACTION) { // do not process message
+		return CallNextHookEx(NULL, nCode, wParam, lParam);
+	}
+	/* from offical document */
+
+	MSLLHOOKSTRUCT* p = (MSLLHOOKSTRUCT*)lParam;
+	switch (wParam)
+	{
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONUP:
+	case WM_RBUTTONDOWN:
+	case WM_RBUTTONUP:
+	case WM_MOUSEMOVE:
+	case WM_MOUSEWHEEL:
+
+		break;
+	case WM_MOUSEHWHEEL:
+	default:
+		break;
+	}
+
+	CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
 DllExport void UninstallHook(HANDLE hook, HANDLE* hookaddr, HANDLE shareobj, HANDLE* shareobj_addr) {
@@ -83,7 +107,7 @@ static HANDLE SetHook() {
 	if (!hinstDLL) {
 		return NULL;
 	}
-	HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "KBHOOK_KeyboardProc____");
+	HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "KBHOOK_KeyboardProc_______________");
 	HHOOK hhookSysMsg = SetWindowsHookEx(WH_KEYBOARD_LL, hkprcSysMsg, hinstDLL, 0);
 	if (hhookSysMsg == NULL) {
 		CloseHandle(hinstDLL);
@@ -91,14 +115,14 @@ static HANDLE SetHook() {
 	return hhookSysMsg;
 }
 
-typedef struct MyHookKey_Parameter {
+typedef struct HookThreadRoutine_Parameter {
 	HANDLE* hookaddr;
 	HANDLE sharedobject;
 	int* hooksuccess;
-} MyHookKey_Parameter;
+} HookThreadRoutine_Parameter;
 
-static DWORD WINAPI MyHookKey(_In_ LPVOID lpParameter) {
-	MyHookKey_Parameter param = *(MyHookKey_Parameter*)lpParameter;
+static DWORD WINAPI HookThreadRoutine(_In_ LPVOID lpParameter) {
+	HookThreadRoutine_Parameter param = *(HookThreadRoutine_Parameter*)lpParameter;
 	free(lpParameter); lpParameter = NULL;
 
 	*param.hookaddr = SetHook();
@@ -114,7 +138,7 @@ static DWORD WINAPI MyHookKey(_In_ LPVOID lpParameter) {
 DllExport void InstallHook(int* hooksuccess, HANDLE* hookaddr, HANDLE* sharedobj_addr) {
 	HANDLE hthread;
 
-	MyHookKey_Parameter* param = malloc(sizeof(MyHookKey_Parameter));
+	HookThreadRoutine_Parameter* param = malloc(sizeof(HookThreadRoutine_Parameter));
 	if (!param) {
 		*hooksuccess = 0;
 		return;
@@ -128,7 +152,7 @@ DllExport void InstallHook(int* hooksuccess, HANDLE* hookaddr, HANDLE* sharedobj
 		free(param);
 		return;
 	}
-	hthread = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)MyHookKey, param, NULL, NULL);
+	hthread = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)HookThreadRoutine, param, NULL, NULL);
 
 	if (!hthread) {
 		*hooksuccess = 0;
