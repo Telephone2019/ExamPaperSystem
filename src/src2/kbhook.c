@@ -3,6 +3,8 @@ extern "C" {
 #endif
 #include "kbhook.h"
 
+#include "logme.h"
+
 DllExport LRESULT CALLBACK KBHOOK_KeyboardProc_______________(int nCode, WPARAM wParam, LPARAM lParam) {
 	/* from offical document */
 	if (nCode < 0 || nCode != HC_ACTION) { // do not process message
@@ -11,6 +13,7 @@ DllExport LRESULT CALLBACK KBHOOK_KeyboardProc_______________(int nCode, WPARAM 
 	/* from offical document */
 
 	int _EatKeystroke = 0;
+	int ctrl_down = 0, alt_down = 0;
 	KBDLLHOOKSTRUCT* p = (KBDLLHOOKSTRUCT*)lParam;
 	switch (wParam)
 	{
@@ -21,11 +24,13 @@ DllExport LRESULT CALLBACK KBHOOK_KeyboardProc_______________(int nCode, WPARAM 
 		// the most significant bit indicates whether the key is currently up or down
 		int bCtrlKeyDown =
 			GetAsyncKeyState(VK_CONTROL) >> ((sizeof(SHORT) * 8) - 1);
+		ctrl_down = bCtrlKeyDown;
+		alt_down = p->flags & LLKHF_ALTDOWN;
 		_EatKeystroke = (
 			(p->vkCode == VK_LWIN)
 			|| (p->vkCode == VK_RWIN)
-			|| (p->flags & LLKHF_ALTDOWN)
-			|| (p->vkCode == VK_ESCAPE && p->flags & LLKHF_ALTDOWN)
+			|| (alt_down)
+			|| (p->vkCode == VK_ESCAPE && alt_down)
 			|| (p->vkCode == VK_ESCAPE && bCtrlKeyDown) // ctrl + esc
 			);
 		break;
@@ -34,6 +39,7 @@ DllExport LRESULT CALLBACK KBHOOK_KeyboardProc_______________(int nCode, WPARAM 
 	}
 
 	if (_EatKeystroke) {
+		LogMe.e("Key [ %lu%s%s ] Not Allowed!", p->vkCode, ctrl_down?" + Ctrl":"", alt_down?" + Alt":"");
 		/* from offical document */
 		return 1;
 		/* from offical document */

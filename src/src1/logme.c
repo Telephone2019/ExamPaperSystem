@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <time.h>
 
 #include "macros.h"
@@ -79,14 +80,35 @@ static void reset_console_text_color() {
 
 static volatile HANDLE l_mutex = NULL;
 
+/* The variable pointed to by the Addend parameter must be aligned on a 32 - bit boundary; 
+ * otherwise, this function will behave unpredictably on multiprocessor x86 systemsand any non - x86 systems.
+ * See _aligned_malloc.
+ * from: https://docs.microsoft.com/en-us/windows/win32/api/winnt/nf-winnt-interlockedincrement
+ * */
+static volatile _Alignas(uint32_t) LONG lock = 0L;
+
+static void generate_mutex() {
+    while (l_mutex == NULL)
+    {
+        l_mutex = CreateMutex(
+            NULL,               // default security attributes
+            0,                  // initially not owned
+            NULL                // unnamed mutex
+        );
+    }
+}
+
 static void l(const char* text, WORD color, va_list valist_list, ...) {
     if (l_mutex == NULL)
     {
-        va_list empty_valist;
-        va_start(empty_valist, valist_list);
-        vprintf("Please call logme_init() from single thread to init LogMe first.\n", empty_valist);
-        va_end(empty_valist);
-        return;
+        if (InterlockedIncrement(&lock) == 1L)
+        {
+            generate_mutex();
+        }
+        else
+        {
+            while (l_mutex == NULL);
+        }
     }
     while (WaitForSingleObject(l_mutex, INFINITE) == WAIT_FAILED);
     const char* text_line = line(text);
@@ -166,14 +188,7 @@ static void l(const char* text, const char* color, va_list valist_list) {
 void logme_init() {
 #ifdef LOGME_WINDOWS
 
-    while (l_mutex == NULL)
-    {
-        l_mutex = CreateMutex(
-            NULL,               // default security attributes
-            0,                  // initially not owned
-            NULL                // unnamed mutex
-        );
-    }
+    // no op
 
 #elif defined(V_BARE_METAL)
 

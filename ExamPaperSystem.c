@@ -461,7 +461,7 @@ int main()
     free(zptr);
 
 #ifdef LOGME_WINDOWS
-//#define TEST_HOOK
+#define TEST_HOOK
 #ifdef TEST_HOOK
     int hook_success;
     HANDLE hook, sharedobj;
