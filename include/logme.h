@@ -1,6 +1,10 @@
 #ifndef LOGME
 #define LOGME
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <macros.h>
 #include <stdarg.h>
 
@@ -37,5 +41,9 @@ long long logme_get_time();
 // 如果不需要初始化外部模块，请在 logme_prepare() 中直接返回非零值。
 int logme_prepare();
 #endif // V_BARE_METAL
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // LOGME

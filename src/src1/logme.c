@@ -1,3 +1,6 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "logme.h"
 
 #include <stdio.h>
@@ -345,3 +348,8 @@ const struct LogMe LogMe = {
     log_me_nt__,
     log_me_bt__
 };
+
+
+#ifdef __cplusplus
+}
+#endif
