@@ -115,7 +115,7 @@ DllExport void UninstallHook(HANDLE hook, HANDLE* hookaddr, HANDLE shareobj, HAN
 static void MessageLoop(HANDLE shareobj) {
 	MSG msg;
 	while (1) {
-		if (GetMessage(&msg, NULL, 0, 0)) {
+		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
