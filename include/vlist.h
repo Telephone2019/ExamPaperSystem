@@ -40,6 +40,7 @@ struct vlist_struct
     long size;
     size_t node_size;
 
+    // modify nodes through the pointers returned from get() may be very dangerous. DO NOT modify the internal fields! use copyXX() functions instead of raw "=".
     VLIST_GET_FUNC_TYPE* get;
     VLIST_GET_CONST_FUNC_TYPE* get_const;
     VLIST_ADD_FUNC_TYPE* add;
@@ -56,6 +57,7 @@ struct vlist_struct
 vlist make_vlist(size_t node_size);
 void delete_vlist(vlist vlist_, vlist* vlist_ptr);
 
+// modify nodes through the pointers returned from get() may be very dangerous. DO NOT modify the internal fields! use copyXX() functions instead of raw "=".
 void* vlist_get(vlist this_vlist, long index);
 const void* vlist_get_const(vlist this_vlist, long index);
 int vlist_add(vlist this_vlist, const void* node);
