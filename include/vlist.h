@@ -7,13 +7,13 @@ extern "C" {
 
 #include <stddef.h>
 
-#define __VLIST_NODE_STRUCT_TYPE struct{void*prev;void*next;}
+#define __VLIST_NODE_STRUCT_TYPE volatile struct{volatile void*prev;volatile void*next;}
 #define VLISTNODE __VLIST_NODE_STRUCT_TYPE ;
 
 #define VLIST_ERROR_INVALID_INDEX -1
 #define VLIST_ERROR_MALLOC_FAIL -2
 
-typedef struct vlist_struct* vlist;
+typedef volatile struct vlist_struct* volatile vlist;
 
 // return non-zero to break
 typedef int VLIST_RUNNABLE_FUNC_TYPE(vlist this_vlist, long i, void *extra);
@@ -33,9 +33,9 @@ typedef int VLIST_FOREACH_REVERSE_FUNC_TYPE(vlist this_vlist, VLIST_RUNNABLE_FUN
 typedef long VLIST_FLUSH_FUNC_TYPE(vlist this_vlist, VLIST_FILTER_FUNC_TYPE* filter, void* extra);
 typedef void VLIST_CLEAR_FUNC_TYPE(vlist this_vlist);
 
-struct vlist_struct
+volatile struct vlist_struct
 {
-    void* current;
+    volatile void* current;
     long current_idx;
     long size;
     size_t node_size;
