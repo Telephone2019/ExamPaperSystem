@@ -23,6 +23,7 @@ add_library(TCPServer "tcpserver.c")
 
 # 仅适用于 linux 平台
 add_library(TCPServerLinux "tcpserverlinux.c")
+add_library(RFBServer "rfbserver.c")
 
 ############################################## 自定义导入库 ##############################################
 
@@ -61,6 +62,7 @@ target_include_directories(SQLite3_win_x64 INTERFACE ${MyInclude1})
 
 # 仅适用于 linux 平台
 target_include_directories(TCPServerLinux PUBLIC ${MyInclude1})
+target_include_directories(RFBServer PUBLIC ${MyInclude1})
 
 ######################################### 自定义库需要链接的其他库 #########################################
 
